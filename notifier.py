@@ -6,8 +6,8 @@ import requests
 
 def send_to_telegram(msg):
     message = "" + str(os.getpid()) + " : " + msg
-    api_token = '6692518866:AAGxQA2daTuCSXoRzRtEfz2YvS6B3zY5EU0'
-    chat_id = '714785675'
+    api_token = os.environ.get("TELEGRAM_API_TOKEN")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     api_url = f'https://api.telegram.org/bot{api_token}/sendMessage'
 
     try:

@@ -128,7 +128,7 @@ class BerlinBot:
 
     def _success(self):
         logging.info("!!!SUCCESS - do not close the window!!!!")
-        notifier.send_to_telegram("✅FOUND AN *AUSLANDERHORDE* APPOINTMENT ✅")
+        notifier.send_to_telegram("✅POSSIBLE *AUSLANDERHORDE* APPOINTMENT ✅")
         while True:
             self._play_sound_osx(self._sound_file)
             time.sleep(15)
