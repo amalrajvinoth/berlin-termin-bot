@@ -1,6 +1,6 @@
 # Berlin Termin Bot
 
-A [Selenium](https://www.selenium.dev/) bot for obtaining an appointment at the Burgeramt in Berlin.
+A [Selenium](https://www.selenium.dev/) bot for obtaining an appointment at the `Ausländerbehörde` or `Bürgerämt` in Berlin.
 
 I did not want to open source this as this makes it harder for the people without IT knowledge to obtain an appointment, but as there are already people who make a benefit of this (50 euro per appointment!) I thought it would be a good thing to make the tools available to everyone. This project is therefore a counter measurement against those people as well as the inability of the Ausländerbehörde to provide sufficient appointments.
 
@@ -13,27 +13,31 @@ Take a look at the video [Hinter verschlossenen Türen – Mysterium Ausländerb
 
 ## Setup
 
-* Telegram bot creation: 
-  * Find telegram bot named "@botfarther", he will help you with creating and managing your bot.
-  * Print “/help” and you will see all possible commands that the botfather can operate.
-  * To create a new bot type “/newbot” or click on it.
+* Telegram bot creation:
+  * Find telegram bot named `@botfather`, he will help you with creating and managing your bot. 
+  * Print “/help” and you will see all possible commands that the `botfather` can operate. 
+  * To create a new bot type `/newbot` or click on it. 
   * Congratulations! You've just created your Telegram bot. You will see a new API token generated for it.
-  * To get CHAT_ID 
-    * ```curl https://api.telegram.org/bot<API_TOKEN>/getUpdates```
-* Update env variables in `auslanderbehorde_bot.sh`:
+* Clone this repository:
+  * `git clone https://github.com/amalrajvinoth/berlin-termin-bot.git`
+* To get telegram CHAT_ID created in Step 1, run the following command: 
+  * ```curl https://api.telegram.org/bot<API_TOKEN>/getUpdates```
+* Update env variables in `auslanderbehorde_bot.sh` or `berlin_bot.sh` with your `API_TOKEN` and `CHAT_ID`:
   * `export TELEGRAM_API_TOKEN=<TELEGRAM_API_TOKEN>`
   * `export TELEGRAM_CHAT_ID=<TELEGRAM_CHAT_ID>`
-* `git clone https://github.com/amalrajvinoth/berlin-termin-bot.git`
-* Setup a virtualenv via `virtualenv venv` and activate it
-* Install dependencies via `pip3 install -r requirements.txt`
-* Put a `chromedriver` binary from <https://chromedriver.chromium.org/downloads> into the directory
+* Setup a virtualenv via `sudo virtualenv venv` and activate it.
+* Install dependencies via `sudo pip3 install -r requirements.txt`
+* Put a latest version of `chromedriver` binary from <https://chromedriver.chromium.org/downloads> into this repository directory
+  * Add `chromedriver` to PATH: `echo 'export PATH=$PATH:<chromedriver_path>' > ~/.profile`
 * Configure `auslanderbehorde_bot.py` or `berlin_bot.py` according to your needs (see below)
 * Start the bot via `auslanderbehorde_bot.sh` or `berlin_bot.sh`
+  * `chmod +x auslanderbehorde_bot.sh`
+  * `./auslanderbehorde_bot.sh`
 
 ## Configuration and Support
 
-I do not give any kind of support and/or advice on how to configure this bot as I wrote this for a friend of mine and thankfully she was able to get an appointment with this bot.
 You can read the [selenium docs](https://selenium-python.readthedocs.io/locating-elements.html#) and adjust `auslanderbehorde_bot.py` or `berlin_bot.py` in order to configure it according to your needs.
+By default, it looks appointment for `Residence permit for spouses parents and children of foreign family members (§§ 29-34)` for `3 person` from `India`.
 
 ## Thanks
 

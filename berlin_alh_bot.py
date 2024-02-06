@@ -1,19 +1,20 @@
 import logging
 import os
 import time
-
 import traceback
-
-import notifier
 from platform import system
 
+from AppKit import NSSound
+from Foundation import NSURL
 from selenium import webdriver
-from selenium.common.exceptions import ElementClickInterceptedException
+from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.wait import WebDriverWait
+
+import notifier
 
 system = system()
 
@@ -26,7 +27,7 @@ logging.basicConfig(
 class WebDriver:
     def __init__(self):
         self._driver: webdriver.Chrome
-        self._implicit_wait_time = 20
+        self._implicit_wait_time = 10
 
     def __enter__(self) -> webdriver.Chrome:
         logging.info("Open browser")
@@ -60,10 +61,10 @@ def check_exists_by_xpath(driver: webdriver.Chrome, xpath):
 def click(driver, element_name, selector_type, selector):
     logging.info(element_name)
     try:
-        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click();
+        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
     except ElementClickInterceptedException:
         logging.info("ElementClickInterceptedException.. retry")
-        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click();
+        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
 
 
 class BerlinBot:
@@ -79,7 +80,7 @@ class BerlinBot:
         driver.get("https://otv.verwalt-berlin.de/ams/TerminBuchen")
         while check_exists_by_xpath(driver, "//*[contains(text(),'500 - Internal Server Error')]"):
             logging.info("Page error - 500 - Internal Server Error")
-            time.sleep(2)
+            time.sleep(1)
             driver.refresh()
         click(driver, "start page", By.XPATH,
               '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
@@ -96,39 +97,50 @@ class BerlinBot:
         while not "Angaben zum Anliegen" in driver.page_source:
             time.sleep(5)
         logging.info("Fill out form")
-        # select china
-        s = Select(driver.find_element(By.ID, 'xi-sel-400'))
-        s.select_by_visible_text("Indien")
-        # eine person
-        s = Select(driver.find_element(By.ID, 'xi-sel-422'))
-        s.select_by_visible_text("drei Personen")
-        # family
-        s = Select(driver.find_element(By.ID, 'xi-sel-427'))
-        s.select_by_visible_text("ja")
-        # family nationality
-        s = Select(driver.find_element(By.ID, 'xi-sel-428'))
-        s.select_by_visible_text("Indien")
 
-        # extend residence permit
-        click(driver, "Selecting - extend residence permit", By.XPATH,
-              "//*[contains(text(),'Aufenthaltstitel - verlängern')]")
+        try:
+            # select china
+            s = Select(driver.find_element(By.ID, 'xi-sel-400'))
+            s.select_by_visible_text("Indien")
+            # eine person
+            s = Select(driver.find_element(By.ID, 'xi-sel-422'))
+            s.select_by_visible_text("drei Personen")
+            # family
+            s = Select(driver.find_element(By.ID, 'xi-sel-427'))
+            s.select_by_visible_text("ja")
+            # family nationality
+            s = Select(driver.find_element(By.ID, 'xi-sel-428'))
+            s.select_by_visible_text("Indien")
 
-        # family reasons
-        click(driver, "Clicking - family reasons", By.XPATH,
-              '//*[@id="inner-436-0-2"]/div/div[5]/label/p')
+            # extend residence permit
+            click(driver, "Selecting - extend residence permit", By.XPATH,
+                  "//*[contains(text(),'Aufenthaltstitel - verlängern')]")
 
-        # Residence permit for spouses, parents and children of foreign family members (§§ 29-34)
-        click(driver, "Selecting - Residence permit for spouses, "
-                      "parents and children of foreign family members (§§ 29-34)", By.XPATH,
-              '//*[@id="inner-436-0-2"]/div/div[6]/div/div[3]/label')
+            # family reasons
+            click(driver, "Clicking - family reasons", By.XPATH,
+                  '//*[@id="inner-436-0-2"]/div/div[5]/label/p')
 
-        # submit form
-        click(driver, "Form Submit.", By.ID,
-              'applicationForm:managedForm:proceed')
+            # Residence permit for spouses, parents and children of foreign family members (§§ 29-34)
+            click(driver, "Selecting - Residence permit for spouses, "
+                          "parents and children of foreign family members (§§ 29-34)", By.XPATH,
+                  '//*[@id="inner-436-0-2"]/div/div[6]/div/div[3]/label')
+
+            # submit form
+            click(driver, "Form Submit.", By.ID,
+                  'applicationForm:managedForm:proceed')
+
+        except TimeoutException as toe:
+            logging.error("TimeoutException occurred - %s", toe)
+            notifier.send_to_telegram("⬅️ 💀💀💀 TimeoutException occurred - {0}".format(str(toe)))
+            BerlinBot().run_loop()
+        except Exception as e:
+            logging.error("Exception occurred - %s", e)
+            notifier.send_to_telegram("⬅️ 💀💀💀 Exception occurred - {0}".format(str(e)))
+            BerlinBot().run_loop()
 
     def _success(self):
         logging.info("!!!SUCCESS - do not close the window!!!!")
-        notifier.send_to_telegram("✅POSSIBLE *AUSLANDERHORDE* APPOINTMENT ✅")
+        notifier.send_to_telegram("✅POSSIBLE *AUSLANDERHORDE* APPOINTMENT FOUND ✅")
         while True:
             self._play_sound_osx(self._sound_file)
             time.sleep(15)
@@ -176,9 +188,6 @@ class BerlinBot:
         http://stackoverflow.com/a/34568298/901641
         I never would have tried using AppKit.NSSound without seeing his code.
         """
-        from AppKit import NSSound
-        from Foundation import NSURL
-        from time import sleep
 
         logging.info("Play sound")
         if "://" not in sound:
@@ -194,12 +203,12 @@ class BerlinBot:
         ns_sound.play()
 
         if block:
-            sleep(ns_sound.duration())
+            time.sleep(ns_sound.duration())
 
 
 if __name__ == "__main__":
     try:
         BerlinBot().run_loop()
-    except BaseException as error:
-        notifier.send_to_telegram("⬅️ 💀💀💀 Exception occurred - {0}".format(str(error)))
-        logging.error("Exception occurred - %s , trace=%s", error, traceback.format_exc())
+    except BaseException as e:
+        notifier.send_to_telegram("⬅️ 💀💀💀 Exception occurred - {0}, Trace:{1}".format(e, traceback.format_exc()))
+        logging.error("Exception occurred - %s , trace=%s", e, traceback.format_exc())
