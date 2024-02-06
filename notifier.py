@@ -18,7 +18,7 @@ def send_to_telegram(msg):
         print(e)
 
 
-class Notifier():
+class Notifier:
     def __init__(self, name, dog):
         self.name = name
         self.dog = dog

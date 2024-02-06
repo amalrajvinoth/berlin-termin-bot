@@ -4,8 +4,6 @@ import time
 import traceback
 from platform import system
 
-from AppKit import NSSound
-from Foundation import NSURL
 from selenium import webdriver
 from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from selenium.common.exceptions import NoSuchElementException
@@ -15,6 +13,7 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.wait import WebDriverWait
 
 import notifier
+import sound
 
 system = system()
 
@@ -167,7 +166,7 @@ class BerlinBot:
     def run_loop(self):
         # play sound to check if it works
         notifier.send_to_telegram("➡️BOT Running for *VISA extension* APPOINTMENT 💡")
-        self._play_sound_osx(self._sound_file)
+        sound.play_sound_osx(self._sound_file)
         rounds = 0
         while True:
             rounds = rounds + 1
@@ -175,35 +174,6 @@ class BerlinBot:
             notifier.send_to_telegram("Round - {0}".format(rounds))
             self.run_once()
             time.sleep(self.wait_time)
-
-    # stolen from https://github.com/JaDogg/pydoro/blob/develop/pydoro/pydoro_core/sound.py
-    @staticmethod
-    def _play_sound_osx(sound, block=True):
-        """
-        Utilizes AppKit.NSSound. Tested and known to work with MP3 and WAVE on
-        OS X 10.11 with Python 2.7. Probably works with anything QuickTime supports.
-        Probably works on OS X 10.5 and newer. Probably works with all versions of
-        Python.
-        Inspired by (but not copied from) Aaron's Stack Overflow answer here:
-        http://stackoverflow.com/a/34568298/901641
-        I never would have tried using AppKit.NSSound without seeing his code.
-        """
-
-        logging.info("Play sound")
-        if "://" not in sound:
-            if not sound.startswith("/"):
-                from os import getcwd
-
-                sound = getcwd() + "/" + sound
-            sound = "file://" + sound
-        url = NSURL.URLWithString_(sound)
-        ns_sound = NSSound.alloc().initWithContentsOfURL_byReference_(url, True)
-        if not ns_sound:
-            raise IOError("Unable to load sound named: " + sound)
-        ns_sound.play()
-
-        if block:
-            time.sleep(ns_sound.duration())
 
 
 if __name__ == "__main__":
