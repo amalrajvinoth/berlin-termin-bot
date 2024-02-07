@@ -41,7 +41,7 @@ def click(driver, element_name, selector_type, selector):
     try:
         WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
     except ElementClickInterceptedException:
-        logging.info("ElementClickInterceptedException.. retry")
+        logging.warning("ElementClickInterceptedException.. retry")
         WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
 
 
@@ -49,6 +49,7 @@ class BerlinBot:
     def __init__(self):
         self.wait_time = 2
         self._sound_file = os.path.join(os.getcwd(), "alarm.wav")
+        self._error_message0 = """späteren Zeitpunkt"""
         self._error_message1 = """Für die gewählte Dienstleistung sind aktuell keine Termine frei! Bitte"""
         self._error_message2 = """Für die gewählte Dienstleistung sind aktuell keine Termine frei! Bitte versuchen Sie 
         es zu einem späteren Zeitpunkt erneut"""
@@ -93,9 +94,10 @@ class BerlinBot:
             s.select_by_visible_text("Indien")
 
             # fix bug of repeated "extend residence permit"
-            count = len(re.findall("Aufenthaltstitel - verlängern", customer_webdriver.get_page_source(driver), re.I))
+            count = len(driver.find_elements(By.XPATH, '//label[@for="SERVICEWAHL_DE3436-0-2"]'))
             logging.error("Aufenthaltstitel - verlängern count = %d", count)
             if count > 1:
+                s.select_by_visible_text("Pakistan")
                 s.select_by_visible_text("Indien")
 
             # extend residence permit
@@ -145,6 +147,7 @@ class BerlinBot:
                 time.sleep(10)
                 msg = customer_webdriver.get_page_source(driver)
                 if (
+                        self._error_message0 in msg or
                         self._error_message1 in msg or
                         self._error_message2 in msg or
                         self._session_closed_message in msg
