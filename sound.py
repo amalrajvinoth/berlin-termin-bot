@@ -39,4 +39,4 @@ class Sound:
     def __init__(self, name, dog):
         self.name = name
         self.dog = dog
-        _play_sound_osx(self.name)
+        sound.play_sound_osx(self.name)

@@ -1,21 +1,26 @@
 import logging
 import os
 import time
+import re
 import traceback
 from platform import system
 
-from selenium import webdriver
 from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.chrome import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.wait import WebDriverWait
+from dotenv import load_dotenv
 
 import notifier
 import sound
+import customer_webdriver
 
 system = system()
+
+load_dotenv()
 
 logging.basicConfig(
     format='%(asctime)s\t%(levelname)s\t%(message)s',
@@ -23,33 +28,7 @@ logging.basicConfig(
 )
 
 
-class WebDriver:
-    def __init__(self):
-        self._driver: webdriver.Chrome
-        self._implicit_wait_time = 10
-
-    def __enter__(self) -> webdriver.Chrome:
-        logging.info("Open browser")
-        # some stuff that prevents us from being locked out
-        options = webdriver.ChromeOptions()
-        options.add_argument('--disable-blink-features=AutomationControlled')
-        self._driver = webdriver.Chrome(options=options)
-        self._driver.implicitly_wait(self._implicit_wait_time)  # seconds
-        self._driver.execute_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        self._driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-            "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.53 Safari/537.36'})
-        return self._driver
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        logging.info("Close browser")
-        if exc_type is not None:
-            notifier.send_to_telegram(
-                "⬅️ 💀💀💀 Quiting program due to {0} = {1} at {2} 💀💀💀".format(exc_type, exc_value, exc_tb))
-        self._driver.quit()
-
-
-def check_exists_by_xpath(driver: webdriver.Chrome, xpath):
+def check_exists_by_xpath(driver: webdriver.WebDriver, xpath):
     try:
         driver.find_element(By.XPATH, xpath)
     except NoSuchElementException:
@@ -70,11 +49,13 @@ class BerlinBot:
     def __init__(self):
         self.wait_time = 2
         self._sound_file = os.path.join(os.getcwd(), "alarm.wav")
-        self._error_message = """Für die gewählte Dienstleistung sind aktuell keine Termine frei! Bitte"""
+        self._error_message1 = """Für die gewählte Dienstleistung sind aktuell keine Termine frei! Bitte"""
+        self._error_message2 = """Für die gewählte Dienstleistung sind aktuell keine Termine frei! Bitte versuchen Sie 
+        es zu einem späteren Zeitpunkt erneut"""
         self._session_closed_message = """Sitzung wurde beendet"""
 
     @staticmethod
-    def enter_start_page(driver: webdriver.Chrome):
+    def enter_start_page(driver: webdriver.WebDriver):
         logging.info("Visit start page")
         driver.get("https://otv.verwalt-berlin.de/ams/TerminBuchen")
         while check_exists_by_xpath(driver, "//*[contains(text(),'500 - Internal Server Error')]"):
@@ -85,15 +66,15 @@ class BerlinBot:
               '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
 
     @staticmethod
-    def tick_off_some_bullshit(driver: webdriver.Chrome):
+    def tick_off_agreement(driver: webdriver.WebDriver):
         logging.info("Ticking off agreement")
         click(driver, "Select agreement", By.XPATH,
               '//*[@id="xi-div-1"]/div[4]/label[2]/p')
         click(driver, "Submit button", By.ID, 'applicationForm:managedForm:proceed')
 
     @staticmethod
-    def enter_form(driver: webdriver.Chrome):
-        while not "Angaben zum Anliegen" in driver.page_source:
+    def enter_form(driver: webdriver.WebDriver):
+        while "Angaben zum Anliegen" not in customer_webdriver.get_page_source(driver):
             time.sleep(5)
         logging.info("Fill out form")
 
@@ -101,7 +82,7 @@ class BerlinBot:
             # select china
             s = Select(driver.find_element(By.ID, 'xi-sel-400'))
             s.select_by_visible_text("Indien")
-            # eine person
+            # number of person
             s = Select(driver.find_element(By.ID, 'xi-sel-422'))
             s.select_by_visible_text("drei Personen")
             # family
@@ -110,6 +91,12 @@ class BerlinBot:
             # family nationality
             s = Select(driver.find_element(By.ID, 'xi-sel-428'))
             s.select_by_visible_text("Indien")
+
+            # fix bug of repeated "extend residence permit"
+            count = len(re.findall("Aufenthaltstitel - verlängern", customer_webdriver.get_page_source(driver), re.I))
+            logging.error("Aufenthaltstitel - verlängern count = %d", count)
+            if count > 1:
+                s.select_by_visible_text("Indien")
 
             # extend residence permit
             click(driver, "Selecting - extend residence permit", By.XPATH,
@@ -130,32 +117,40 @@ class BerlinBot:
 
         except TimeoutException as toe:
             logging.error("TimeoutException occurred - %s", toe)
-            notifier.send_to_telegram("⬅️ 💀💀💀 TimeoutException occurred - {0}".format(str(toe)))
+            notifier.send_to_telegram("💀TimeoutException occurred - {0}".format(str(toe)))
+            driver.__exit__(None, None, None)
             BerlinBot().run_loop()
         except Exception as e:
             logging.error("Exception occurred - %s", e)
-            notifier.send_to_telegram("⬅️ 💀💀💀 Exception occurred - {0}".format(str(e)))
+            notifier.send_to_telegram("💀Exception occurred - {0}".format(str(e)))
+            driver.__exit__(None, None, None)
             BerlinBot().run_loop()
 
     def _success(self):
         logging.info("!!!SUCCESS - do not close the window!!!!")
-        notifier.send_to_telegram("✅POSSIBLE *AUSLANDERHORDE* APPOINTMENT FOUND ✅")
+        notifier.send_to_telegram("✅ POSSIBLE *AUSLANDERHORDE* APPOINTMENT FOUND.")
         while True:
-            self._play_sound_osx(self._sound_file)
-            time.sleep(15)
+            sound.play_sound_osx(self._sound_file)
+            time.sleep(60)
         # todo play something and block the browser
 
     def run_once(self):
-        with WebDriver() as driver:
+        with customer_webdriver.WebDriver() as driver:
             self.enter_start_page(driver)
-            self.tick_off_some_bullshit(driver)
+            self.tick_off_agreement(driver)
             self.enter_form(driver)
 
             # retry submit
             for i in range(10):
                 time.sleep(10)
-                if not (
-                        self._error_message in driver.page_source or self._session_closed_message in driver.page_source):
+                msg = customer_webdriver.get_page_source(driver)
+                if (
+                        self._error_message1 in msg or
+                        self._error_message2 in msg or
+                        self._session_closed_message in msg
+                ):
+                    pass
+                else:
                     self._success()
                 time.sleep(10)
                 logging.info("Retry submitting form - # %d ", i)
@@ -165,7 +160,7 @@ class BerlinBot:
 
     def run_loop(self):
         # play sound to check if it works
-        notifier.send_to_telegram("➡️BOT Running for *VISA extension* APPOINTMENT 💡")
+        notifier.send_to_telegram(" BOT Running for *VISA extension* APPOINTMENT")
         sound.play_sound_osx(self._sound_file)
         rounds = 0
         while True:
@@ -180,5 +175,5 @@ if __name__ == "__main__":
     try:
         BerlinBot().run_loop()
     except BaseException as e:
-        notifier.send_to_telegram("⬅️ 💀💀💀 Exception occurred - {0}, Trace:{1}".format(e, traceback.format_exc()))
+        notifier.send_to_telegram("💀 Exception occurred - {0}, Trace:{1}".format(e, traceback.format_exc()))
         logging.error("Exception occurred - %s , trace=%s", e, traceback.format_exc())
