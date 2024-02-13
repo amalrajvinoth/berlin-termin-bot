@@ -1,4 +1,4 @@
-# customer_webdriver.py
+# custom_webdriver.py
 import logging
 
 from selenium import webdriver
