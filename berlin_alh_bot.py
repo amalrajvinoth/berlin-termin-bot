@@ -142,12 +142,14 @@ class BerlinBot:
 
     def run_once(self):
         with custom_webdriver.WebDriver() as driver:
-            current_ms = str(round(time.time() * 1000))
-            current_output_file = f"test_output_" + current_ms + ".mp4"
-            screen_recorder = ScreenRecord(
-                driver=driver,
-                file_path_root="/Users/amal/work/repo/berlin-termin-bot",
-                file_name=current_output_file)
+            driver.maximize_window()
+            # current_ms = str(round(time.time() * 1000))
+            # current_output_file = f"test_output_" + current_ms + ".mp4"
+            # screen_recorder = ScreenRecord(
+            #     driver=driver,
+            #     file_path_root="/Users/amal/work/repo/berlin-termin-bot",
+            #     file_name=current_output_file)
+            # screen_recorder.record_screen()
             try:
                 self.enter_start_page(self, driver)
                 self.tick_off_agreement(self, driver)
@@ -172,7 +174,7 @@ class BerlinBot:
                     time.sleep(self.wait_time)
             finally:
                 driver.close()
-                screen_recorder.stop_recording()
+                #screen_recorder.stop_recording()
 
     def run_loop(self):
         # play sound to check if it works
