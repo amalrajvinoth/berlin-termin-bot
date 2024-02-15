@@ -3,9 +3,4 @@ pyobjc-framework-Cocoa>=5.2
 selenium==4.6.0
 requests==2.31.0
 python-dotenv==1.0.1
-humanize==4.3.0
-loguru==0.6.0
-numpy==1.23.2
-opencv_python==4.6.0.66
-Pillow==9.2.0
-PyAutoGUI==0.9.53
+coloredlogs==15.0

@@ -2,6 +2,9 @@ import logging
 import os
 import time
 from platform import system
+
+import coloredlogs
+
 import notifier
 
 from selenium import webdriver
@@ -130,4 +133,5 @@ class BerlinBot:
 
 
 if __name__ == "__main__":
+    coloredlogs.install()
     BerlinBot().run_loop()

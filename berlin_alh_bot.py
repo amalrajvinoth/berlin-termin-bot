@@ -3,6 +3,7 @@ import os
 import time
 import traceback
 from platform import system
+import coloredlogs, logging
 
 from dotenv import load_dotenv
 from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
@@ -16,7 +17,6 @@ from selenium.webdriver.support.wait import WebDriverWait
 import custom_webdriver
 import notifier
 import sound
-from screen_recorder import ScreenRecord
 
 
 class BerlinBot:
@@ -41,16 +41,19 @@ class BerlinBot:
 
     def submit_form(self, driver, element_name, selector_type, selector):
         logging.info(element_name)
-        while "applicationForm:managedForm:proceed" not in custom_webdriver.get_page_source(driver):
-            logging.info("Submit button not found.. retrying..")
+        if self.is_success(driver):
+            logging.error("Submit button not found.. retrying..")
             self._success()
-            time.sleep(5)
 
         try:
             WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
         except ElementClickInterceptedException:
-            logging.warning("ElementClickInterceptedException.. retry")
+            logging.warning(element_name + " not found.. retry")
             WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
+
+    def is_success(self, driver):
+        return ("applicationForm:managedForm:proceed" not in custom_webdriver.get_page_source(driver)
+                and self.visaExtensionButtonCount(driver) == 0)
 
     @staticmethod
     def click(driver, element_name, selector_type, selector):
@@ -66,7 +69,7 @@ class BerlinBot:
         logging.info("Visit start page")
         driver.get("https://otv.verwalt-berlin.de/ams/TerminBuchen")
         while self.check_exists_by_xpath(driver, "//*[contains(text(),'500 - Internal Server Error')]"):
-            logging.info("Page error - 500 - Internal Server Error")
+            logging.error("Page error - 500 - Internal Server Error")
             time.sleep(1)
             driver.refresh()
         self.click(driver, "Start page", By.XPATH,
@@ -82,7 +85,7 @@ class BerlinBot:
     @staticmethod
     def enter_form(self, driver: webdriver.WebDriver):
         while "Angaben zum Anliegen" not in custom_webdriver.get_page_source(driver):
-            time.sleep(5)
+            time.sleep(self.wait_time)
         logging.info("Fill out form")
 
         try:
@@ -98,13 +101,6 @@ class BerlinBot:
             # family nationality
             s = Select(driver.find_element(By.ID, 'xi-sel-428'))
             s.select_by_visible_text("Indien")
-
-            # fix bug of repeated "extend residence permit"
-            count = len(driver.find_elements(By.XPATH, '//label[@for="SERVICEWAHL_DE3436-0-2"]'))
-            logging.info("Aufenthaltstitel - verlängern count = %d", count)
-            if count > 1:
-                s.select_by_visible_text("Pakistan")
-                s.select_by_visible_text("Indien")
 
             # extend residence permit
             self.click(driver, "Selecting - extend residence permit", By.XPATH,
@@ -133,23 +129,24 @@ class BerlinBot:
             driver.__exit__(None, None, None)
             BerlinBot().run_loop()
 
+    @staticmethod
+    def visaExtensionButtonFound(driver):
+        return len(driver.find_elements(By.XPATH, '//label[@for="SERVICEWAHL_DE3436-0-2"]')) == 0
+
+    @staticmethod
+    def visaExtensionButtonCount(driver):
+        return len(driver.find_elements(By.XPATH, '//*[contains(text(),"Aufenthaltstitel - verlängern")]'))
+
     def _success(self):
         logging.info("!!!SUCCESS - do not close the window!!!!")
         notifier.send_to_telegram("✅ POSSIBLE *AUSLANDERHORDE* APPOINTMENT FOUND.")
         while True:
             sound.play_sound_osx(self._sound_file)
-            time.sleep(60)
+            time.sleep(300)
 
     def run_once(self):
         with custom_webdriver.WebDriver() as driver:
             driver.maximize_window()
-            # current_ms = str(round(time.time() * 1000))
-            # current_output_file = f"test_output_" + current_ms + ".mp4"
-            # screen_recorder = ScreenRecord(
-            #     driver=driver,
-            #     file_path_root="/Users/amal/work/repo/berlin-termin-bot",
-            #     file_name=current_output_file)
-            # screen_recorder.record_screen()
             try:
                 self.enter_start_page(self, driver)
                 self.tick_off_agreement(self, driver)
@@ -157,24 +154,22 @@ class BerlinBot:
 
                 # retry submit
                 for i in range(10):
-                    time.sleep(10)
-                    msg = custom_webdriver.get_page_source(driver)
-                    if (
-                            self._error_message0 in msg or
-                            self._error_message1 in msg or
-                            self._error_message2 in msg or
-                            self._session_closed_message in msg
-                    ):
-                        pass
-                    else:
-                        self._success()
-                    time.sleep(10)
-                    logging.info("Retry submitting form - # %d ", i)
-                    self.submit_form(driver, "Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
                     time.sleep(self.wait_time)
+
+                    if self.check_exists_by_xpath(driver, "//*[contains(text(),'beendet')]"):
+                        logging.warning("Session closed message found, retrying..")
+                        self.enter_form(self, driver)
+                    count = self.visaExtensionButtonCount(driver)
+                    if count > 3:
+                        logging.error("Duplicate button found, count=%d, retrying..", count)
+                        self.enter_form(self, driver)
+                    if self.is_success(driver):
+                        self._success()
+
+                    logging.warning("Retry submitting form - # %d ", i)
+                    self.enter_form(self, driver)
             finally:
                 driver.close()
-                #screen_recorder.stop_recording()
 
     def run_loop(self):
         # play sound to check if it works
@@ -191,12 +186,9 @@ class BerlinBot:
 
 if __name__ == "__main__":
     try:
+        coloredlogs.install()
         system = system()
         load_dotenv()
-        logging.basicConfig(
-            format='%(asctime)s\t%(levelname)s\t%(message)s',
-            level=logging.INFO,
-        )
 
         BerlinBot().run_loop()
     except BaseException as e:
