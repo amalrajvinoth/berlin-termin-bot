@@ -1,13 +1,15 @@
-import logging
 import os
+import os
+import sys
 import time
 import traceback
 from platform import system
-import coloredlogs, logging
 
+import coloredlogs
+import logging
 from dotenv import load_dotenv
-from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
 from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -19,16 +21,14 @@ import notifier
 import sound
 
 
+def sleep(seconds=2):
+    logging.info("Sleeping for %d seconds", seconds)
+    time.sleep(seconds)
+
+
 class BerlinBot:
     def __init__(self):
-        self.wait_time = 2
         self._sound_file = os.path.join(os.getcwd(), "alarm.wav")
-        self._error_message0 = """späteren Zeitpunkt"""
-        self._error_message1 = """Für die gewählte Dienstleistung sind aktuell keine Termine frei! Bitte"""
-        self._error_message2 = """Für die gewählte Dienstleistung sind aktuell keine Termine frei! Bitte versuchen Sie 
-        es zu einem späteren Zeitpunkt erneut"""
-        self._session_closed_message = """Vielen Dank für die Nutzung der Landesamt für Einwanderung - 
-        Terminvereinbarung! Ihre Sitzung wurde beendet."""
         # Ihre Sitzung wird in 0 : 54 beendet. Möchten Sie die Sitzung verlängern?
 
     @staticmethod
@@ -44,12 +44,8 @@ class BerlinBot:
         if self.is_success(driver):
             logging.error("Submit button not found.. retrying..")
             self._success()
-
-        try:
-            WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
-        except ElementClickInterceptedException:
-            logging.warning(element_name + " not found.. retry")
-            WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
+        else:
+            self.click(driver, element_name, selector_type, selector)
 
     def is_success(self, driver):
         return ("applicationForm:managedForm:proceed" not in custom_webdriver.get_page_source(driver)
@@ -57,12 +53,12 @@ class BerlinBot:
 
     @staticmethod
     def click(driver, element_name, selector_type, selector):
-        logging.info(element_name)
-        try:
-            WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
-        except ElementClickInterceptedException:
-            logging.warning("ElementClickInterceptedException.. retry")
-            WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
+        for i in range(3):
+            try:
+                WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
+                break
+            except Exception as exception:
+                logging.warning(str(exception.__cause__) + ".. retry=" + str(i) + " (" + element_name + ")")
 
     @staticmethod
     def enter_start_page(self, driver: webdriver.WebDriver):
@@ -70,7 +66,7 @@ class BerlinBot:
         driver.get("https://otv.verwalt-berlin.de/ams/TerminBuchen")
         while self.check_exists_by_xpath(driver, "//*[contains(text(),'500 - Internal Server Error')]"):
             logging.error("Page error - 500 - Internal Server Error")
-            time.sleep(1)
+            sleep(1)
             driver.refresh()
         self.click(driver, "Start page", By.XPATH,
                    '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
@@ -85,7 +81,7 @@ class BerlinBot:
     @staticmethod
     def enter_form(self, driver: webdriver.WebDriver):
         while "Angaben zum Anliegen" not in custom_webdriver.get_page_source(driver):
-            time.sleep(self.wait_time)
+            sleep(1)
         logging.info("Fill out form")
 
         try:
@@ -142,7 +138,7 @@ class BerlinBot:
         notifier.send_to_telegram("✅ POSSIBLE *AUSLANDERHORDE* APPOINTMENT FOUND.")
         while True:
             sound.play_sound_osx(self._sound_file)
-            time.sleep(300)
+            sleep(300)
 
     def run_once(self):
         with custom_webdriver.WebDriver() as driver:
@@ -154,15 +150,20 @@ class BerlinBot:
 
                 # retry submit
                 for i in range(10):
-                    time.sleep(self.wait_time)
+                    sleep(2)
 
                     if self.check_exists_by_xpath(driver, "//*[contains(text(),'beendet')]"):
                         logging.warning("Session closed message found, retrying..")
                         self.enter_form(self, driver)
+                    if self.check_exists_by_xpath(driver, "//*[contains(text(),'keine Termine frei')]"):
+                        logging.warning("No appointment available, retrying..")
+                        self.enter_form(self, driver)
+
                     count = self.visaExtensionButtonCount(driver)
                     if count > 3:
                         logging.error("Duplicate button found, count=%d, retrying..", count)
-                        self.enter_form(self, driver)
+                        sleep(3)
+                        self.run_once()
                     if self.is_success(driver):
                         self._success()
 
@@ -181,11 +182,12 @@ class BerlinBot:
             logging.info("One more round - # %d", rounds)
             notifier.send_to_telegram("Round - {0}".format(rounds))
             self.run_once()
-            time.sleep(self.wait_time)
+            sleep(2)
 
 
 if __name__ == "__main__":
     try:
+        sys.tracebacklimit = 0
         coloredlogs.install()
         system = system()
         load_dotenv()
