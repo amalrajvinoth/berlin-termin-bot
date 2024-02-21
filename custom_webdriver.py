@@ -17,6 +17,7 @@ def get_page_source(driver: webdriver.Chrome):
                 logging.error(f"failed and alert_text is ", {alert_text})
                 driver.switch_to.alert.accept()
 
+
 class WebDriver:
     def __init__(self):
         self._driver: webdriver.Chrome
