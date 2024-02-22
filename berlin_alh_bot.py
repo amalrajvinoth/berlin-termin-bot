@@ -95,13 +95,13 @@ class BerlinBot:
         logging.info("Fill out form")
 
         try:
-            # select china
+            # Citizenship = Indien 
             BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-400', "Indien")
             # number of person
             BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-422', "drei Personen")
-            # family
+            # Living with family member?
             BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-427', "ja")
-            # family nationality
+            # Family member Citizenship = Indien
             BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-428', "Indien")
             sleep(1)
             # extend residence permit

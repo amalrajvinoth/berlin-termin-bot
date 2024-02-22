@@ -22,12 +22,13 @@ Take a look at the video [Hinter verschlossenen Türen – Mysterium Ausländerb
   * `git clone https://github.com/amalrajvinoth/berlin-termin-bot.git`
 * To get telegram CHAT_ID created in Step 1, run the following command: 
   * ```curl https://api.telegram.org/bot<API_TOKEN>/getUpdates```
-* create `.env` file and update variables in `auslanderbehorde_bot.sh` or `berlin_bot.sh` with your `API_TOKEN` and `CHAT_ID`:
-  * `TELEGRAM_API_TOKEN=<TELEGRAM_API_TOKEN>`
-  * `TELEGRAM_CHAT_ID=<TELEGRAM_CHAT_ID>`
+* Generate a `.env` file which will be used in either `auslanderbehorde_bot.sh` or `berlin_bot.sh` with your specific API_TOKEN and CHAT_ID:
+  * `TELEGRAM_API_TOKEN=<Your_Telegram_API_Token>`
+  * `TELEGRAM_CHAT_ID=<Your_Telegram_Chat_ID>`
 * Setup a virtualenv via `sudo virtualenv venv` and activate it.
 * Install dependencies via `sudo pip3 install -r requirements.txt`
-* Put a latest version of `chromedriver` binary from <https://chromedriver.chromium.org/downloads> into this repository directory
+* Put a latest version of `chromedriver` binary into this repository directory
+  * downaload suitable chromedirver for your OS: https://googlechromelabs.github.io/chrome-for-testing/#stable
   * Add `chromedriver` to PATH: `echo 'export PATH=$PATH:<chromedriver_path>' > ~/.profile`
 * Configure `auslanderbehorde_bot.py` or `berlin_bot.py` according to your needs (see below)
 * Start the bot via `auslanderbehorde_bot.sh` or `berlin_bot.sh`
