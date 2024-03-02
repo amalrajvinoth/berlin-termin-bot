@@ -125,7 +125,7 @@ class BerlinBot:
             notifier.send_to_telegram("💀{0}".format(toe.msg))
             BerlinBot.restart(driver)
         except Exception as exp:
-            notifier.send_to_telegram("💀 Exception occurred - {0}, Trace:{1}".format(exp, traceback.format_exc()))
+            notifier.send_to_telegram("💀 Exception occurred - {0}".format(e))
             logging.error("Exception occurred - %s , trace=%s", exp, traceback.format_exc())
             BerlinBot.restart(driver)
 
@@ -192,7 +192,7 @@ class BerlinBot:
                     logging.warning("Retry submitting form - # %d ", i)
                     BerlinBot.enter_form(driver)
             finally:
-                driver.close()
+                driver.quit()
 
     @staticmethod
     def is_error_message(driver, message):
@@ -222,5 +222,5 @@ if __name__ == "__main__":
 
         BerlinBot().run_loop()
     except BaseException as e:
-        notifier.send_to_telegram("💀 Exception occurred - {0}, Trace:{1}".format(e, traceback.format_exc()))
+        notifier.send_to_telegram("💀 Exception occurred - {0}".format(e))
         logging.error("Exception occurred - %s , trace=%s", e, traceback.format_exc())
