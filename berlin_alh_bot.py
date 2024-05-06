@@ -122,10 +122,10 @@ class BerlinBot:
 
         except TimeoutException as toe:
             logging.error("TimeoutException occurred - %s", toe.msg)
-            notifier.send_to_telegram("💀{0}".format(toe.msg))
+            #notifier.send_to_telegram("💀{0}".format(toe.msg))
             BerlinBot.restart(driver)
         except Exception as exp:
-            notifier.send_to_telegram("💀 Exception occurred - {0}".format(e))
+            #notifier.send_to_telegram("💀 Exception occurred - {0}".format(e))
             logging.error("Exception occurred - %s , trace=%s", exp, traceback.format_exc())
             BerlinBot.restart(driver)
 
@@ -165,7 +165,7 @@ class BerlinBot:
         with (custom_webdriver.WebDriver() as driver):
             driver.maximize_window()
             logging.info("Round - # %d, SessionId=%s", rounds, driver.session_id)
-            notifier.send_to_telegram("Round - {0}, SessionId={1}".format(rounds, driver.session_id))
+            #notifier.send_to_telegram("Round - {0}, SessionId={1}".format(rounds, driver.session_id))
             try:
                 BerlinBot.enter_start_page(driver)
                 BerlinBot.tick_off_agreement(driver)
@@ -204,7 +204,7 @@ class BerlinBot:
 
     def run_loop(self):
         # play sound to check if it works
-        notifier.send_to_telegram(" BOT Running for *VISA extension* APPOINTMENT")
+        #notifier.send_to_telegram(" BOT Running for *VISA extension* APPOINTMENT")
         sound.play_sound_osx(_sound_file)
         rounds = 0
         while True:
@@ -222,5 +222,5 @@ if __name__ == "__main__":
 
         BerlinBot().run_loop()
     except BaseException as e:
-        notifier.send_to_telegram("💀 Exception occurred - {0}".format(e))
+        #notifier.send_to_telegram("💀 Exception occurred - {0}".format(e))
         logging.error("Exception occurred - %s , trace=%s", e, traceback.format_exc())
