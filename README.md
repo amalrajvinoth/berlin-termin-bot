@@ -15,7 +15,7 @@ Take a look at the video [Hinter verschlossenen Türen – Mysterium Ausländerb
 
 * Telegram bot creation:
   * Find telegram bot named `@botfather`, he will help you with creating and managing your bot. 
-  * Print “/help” and you will see all possible commands that the `botfather` can operate. 
+  * Print `/help` and you will see all possible commands that the `botfather` can operate. 
   * To create a new bot type `/newbot` or click on it. 
   * Congratulations! You've just created your Telegram bot. You will see a new API token generated for it.
 * Clone this repository:

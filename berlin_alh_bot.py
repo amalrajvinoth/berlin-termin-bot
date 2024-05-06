@@ -1,4 +1,4 @@
-import os
+import logging
 import os
 import sys
 import time
@@ -6,7 +6,6 @@ import traceback
 from platform import system
 
 import coloredlogs
-import logging
 from dotenv import load_dotenv
 from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException
 from selenium.common.exceptions import TimeoutException
@@ -205,7 +204,7 @@ class BerlinBot:
     def run_loop(self):
         # play sound to check if it works
         #notifier.send_to_telegram(" BOT Running for *VISA extension* APPOINTMENT")
-        sound.play_sound_osx(_sound_file)
+        #sound.play_sound_osx(_sound_file)
         rounds = 0
         while True:
             rounds = rounds + 1
