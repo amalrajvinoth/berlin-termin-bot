@@ -56,7 +56,9 @@ class BerlinBot:
     @staticmethod
     def is_success(driver: webdriver.WebDriver):
         return ("applicationForm:managedForm:proceed" not in custom_webdriver.get_page_source(driver)
-                and BerlinBot.is_visa_extension_button_not_found(driver))
+                and "messagesBox" not in custom_webdriver.get_page_source(driver)
+                and BerlinBot.is_visa_extension_button_not_found(driver)
+                and "recaptcha" not in custom_webdriver.get_page_source(driver))
 
     @staticmethod
     def click(driver: webdriver.WebDriver, element_name, selector_type, selector):
@@ -154,7 +156,7 @@ class BerlinBot:
     @staticmethod
     def _success():
         logging.info("!!!SUCCESS - do not close the window!!!!")
-        notifier.send_to_telegram("✅ POSSIBLE *AUSLANDERHORDE* APPOINTMENT FOUND.")
+        notifier.send_to_telegram("✅ POSSIBLE *AUSLANDERHORDE* APPOINTMENT FOUND. Please hurry to book your appointment by selecting first available time and captcha.")
         while True:
             sound.play_sound_osx(_sound_file)
             sleep(300)
