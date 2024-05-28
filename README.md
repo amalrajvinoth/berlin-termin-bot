@@ -11,17 +11,18 @@ Watch this video [Hinter verschlossenen Türen – Mysterium Ausländerbehörde 
 
 ## Setup
 
-* Clone repository:
+#### Clone repository
   * `git clone https://github.com/amalrajvinoth/berlin-termin-bot.git`
-* Telegram bot creation:
+#### Telegram bot creation
   - Search for the Telegram bot named `@botfather`, who will assist you in creating and managing your bot.
   - Type and send `/help` to see all the available commands that `botfather` can execute.
   - To create a new bot, type `/newbot` or click on it.
   - Congratulations! You've successfully created your Telegram bot. An API token will be generated for it.
-* To get telegram CHAT_ID created in previous step, run the following command: 
+* To get telegram `CHAT_ID` created in previous step, run the following command: 
 ```shell 
 curl https://api.telegram.org/bot<API_TOKEN>/getUpdates
 ```
+#### Configuration
 * Generate a `.env` file from sample file `.env.sample`
 ```dotenv
 # LEA / Ausländerbehörde Configuration
@@ -36,8 +37,10 @@ TELEGRAM_CHAT_ID=<Your_Telegram_Chat_ID>
 ```
 * Setup a virtualenv via `sudo virtualenv venv` and activate it.
 * Install dependencies via `sudo pip3 install -r requirements.txt`
-* Put a latest version of `chromedriver` binary into this repository directory
-  * downaload suitable chromedirver for your OS: https://googlechromelabs.github.io/chrome-for-testing/#stable
+
+#### chromedriver
+* Put the latest version of `chromedriver` binary into this repository directory
+  * Download suitable `chromedirver` for your OS from [here](https://googlechromelabs.github.io/chrome-for-testing/#stable) 
   * Add `chromedriver` to PATH: `echo 'export PATH=$PATH:<chromedriver_path>' > ~/.profile`
 
 ## Run
@@ -48,13 +51,7 @@ TELEGRAM_CHAT_ID=<Your_Telegram_Chat_ID>
   * `./lea_berlin_bot.sh`
 
 ### berlin Bürgerämt appointment
-* Configure `apartment_berlin_bot.py` according to your needs (see below)
-* Start the bot via `apartment_berlin_bot.sh`
-  * `chmod +x apartment_berlin_bot.sh`
-  * `./apartment_berlin_bot.sh`
-
-### berlin Bürgerämt appointment
-* Configure `apartment_berlin_bot.py` according to your needs (see below)
+* Configure `apartment_berlin_bot.py` according to your needs - see [Configuration and Support Section](#configuration-and-support)
 * Start the bot via `apartment_berlin_bot.sh`
   * `chmod +x apartment_berlin_bot.sh`
   * `./apartment_berlin_bot.sh`
@@ -62,14 +59,14 @@ TELEGRAM_CHAT_ID=<Your_Telegram_Chat_ID>
 ## Configuration and Support
 
 You can read the [selenium docs](https://selenium-python.readthedocs.io/locating-elements.html#) and adjust `auslanderbehorde_bot.py` or `berlin_bot.py` in order to configure it according to your needs.
-By default, it looks appointment for `Residence permit for spouses parents and children of foreign family members (§§ 29-34)` for `3 person` from `India`. 
-If you need different nationally and number of people adjust the configuration in `.env` file
+By default, `lea_berlin_bot` looks appointment for `Residence permit for spouses parents and children of foreign family members (§§ 29-34)` for `3 person` from `India`. 
+If you need different nationally and number of people adjust the configuration in `.env` file as explained in [Setup section](#setup)
 
-* Telegram bot creation:
-  - Search for the Telegram bot named `@botfather`, who will assist you in creating and managing your bot.
-  - Type and send `/help` to see all the available commands that `botfather` can execute.
-  - To create a new bot, type `/newbot` or click on it.
-  - Congratulations! You've successfully created your Telegram bot. An API token will be generated for it.
+## Troubleshooting
+### chromedriver is not compatible with current version of chrome
+> Download the new version of chrome driver from [here](https://googlechromelabs.github.io/chrome-for-testing/#stable)
+> refer [section](#chromedriver)
+
 ## Thanks
 
 I would like to express our sincere gratitude to the original creator of this project:
