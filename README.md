@@ -11,15 +11,17 @@ Watch this video [Hinter verschlossenen Türen – Mysterium Ausländerbehörde 
 
 ## Setup
 
-* Telegram bot creation:
-  * Find telegram bot named `@botfather`, he will help you with creating and managing your bot. 
-  * Print `/help` and you will see all possible commands that the `botfather` can operate. 
-  * To create a new bot type `/newbot` or click on it. 
-  * Congratulations! You've just created your Telegram bot. You will see a new API token generated for it.
-* Clone this repository:
+* Clone repository:
   * `git clone https://github.com/amalrajvinoth/berlin-termin-bot.git`
-* To get telegram CHAT_ID created in Step 1, run the following command: 
-  * ```curl https://api.telegram.org/bot<API_TOKEN>/getUpdates```
+* Telegram bot creation:
+  - Search for the Telegram bot named `@botfather`, who will assist you in creating and managing your bot.
+  - Type and send `/help` to see all the available commands that `botfather` can execute.
+  - To create a new bot, type `/newbot` or click on it.
+  - Congratulations! You've successfully created your Telegram bot. An API token will be generated for it.
+* To get telegram CHAT_ID created in previous step, run the following command: 
+```shell 
+curl https://api.telegram.org/bot<API_TOKEN>/getUpdates
+```
 * Generate a `.env` file from sample file `.env.sample`
 ```dotenv
 # LEA / Ausländerbehörde Configuration
@@ -63,6 +65,11 @@ You can read the [selenium docs](https://selenium-python.readthedocs.io/locating
 By default, it looks appointment for `Residence permit for spouses parents and children of foreign family members (§§ 29-34)` for `3 person` from `India`. 
 If you need different nationally and number of people adjust the configuration in `.env` file
 
+* Telegram bot creation:
+  - Search for the Telegram bot named `@botfather`, who will assist you in creating and managing your bot.
+  - Type and send `/help` to see all the available commands that `botfather` can execute.
+  - To create a new bot, type `/newbot` or click on it.
+  - Congratulations! You've successfully created your Telegram bot. An API token will be generated for it.
 ## Thanks
 
 I would like to express our sincere gratitude to the original creator of this project:
