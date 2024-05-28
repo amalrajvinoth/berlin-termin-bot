@@ -58,7 +58,7 @@ TELEGRAM_CHAT_ID=<Your_Telegram_Chat_ID>
 
 ## Configuration and Support
 
-You can read the [selenium docs](https://selenium-python.readthedocs.io/locating-elements.html#) and adjust `auslanderbehorde_bot.py` or `berlin_bot.py` in order to configure it according to your needs.
+You can read the [selenium docs](https://selenium-python.readthedocs.io/locating-elements.html#) and adjust `lea_berlin_bot.py` or `apartment_berlin_bot.py` in order to configure it according to your needs.
 By default, `lea_berlin_bot` looks appointment for `Residence permit for spouses parents and children of foreign family members (§§ 29-34)` for `3 person` from `India`. 
 If you need different nationally and number of people adjust the configuration in `.env` file as explained in [Configuration section](#configuration)
 
