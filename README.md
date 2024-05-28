@@ -45,7 +45,7 @@ TELEGRAM_CHAT_ID=<Your_Telegram_Chat_ID>
 
 ## Run
 ### LEA / Ausländerbehörde appointment
-* Configure `lea_berlin_bot.py` according to your needs (see below)
+* Configure `lea_berlin_bot.py` according to your needs - see [Configuration and Support Section](#configuration-and-support)
 * Start the bot via `lea_berlin_bot.sh`
   * `chmod +x lea_berlin_bot.sh`
   * `./lea_berlin_bot.sh`
@@ -60,7 +60,7 @@ TELEGRAM_CHAT_ID=<Your_Telegram_Chat_ID>
 
 You can read the [selenium docs](https://selenium-python.readthedocs.io/locating-elements.html#) and adjust `auslanderbehorde_bot.py` or `berlin_bot.py` in order to configure it according to your needs.
 By default, `lea_berlin_bot` looks appointment for `Residence permit for spouses parents and children of foreign family members (§§ 29-34)` for `3 person` from `India`. 
-If you need different nationally and number of people adjust the configuration in `.env` file as explained in [Setup section](#setup)
+If you need different nationally and number of people adjust the configuration in `.env` file as explained in [Configuration section](#configuration)
 
 ## Troubleshooting
 ### chromedriver is not compatible with current version of chrome
