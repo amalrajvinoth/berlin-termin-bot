@@ -3,8 +3,7 @@ import logging
 
 from selenium import webdriver
 
-import notifier
-
+from common import notifier
 
 def get_page_source(driver: webdriver.Chrome):
     for i in range(3):

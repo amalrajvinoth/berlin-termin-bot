@@ -15,12 +15,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.wait import WebDriverWait
 
-import custom_webdriver
-import notifier
+from common import custom_webdriver, notifier
 import sound
 
 _sound_file = os.path.join(os.getcwd(), "alarm.wav")
-
 
 def sleep(seconds=2):
     logging.info("Sleeping for %d seconds", seconds)
@@ -94,16 +92,20 @@ class BerlinBot:
         while "Angaben zum Anliegen" not in custom_webdriver.get_page_source(driver):
             sleep(1)
         logging.info("Fill out form")
+        nationality = os.environ.get("LEA_NATIONALITY")
+        num_of_person = os.environ.get("LEA_NUMBER_OF_PERSON")
+        family_living_in_berlin = os.environ.get("LEA_LIVING_IN_BERLIN")
+        family_nationality = os.environ.get("LEA_NATIONALITY_OF_FAMILY_MEMBERS")
 
         try:
             # Citizenship = Indien 
-            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-400', "Indien")
+            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-400', nationality)
             # number of person
-            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-422', "drei Personen")
+            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-422', num_of_person)
             # Living with family member?
-            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-427', "ja")
+            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-427', family_living_in_berlin)
             # Family member Citizenship = Indien
-            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-428', "Indien")
+            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-428', family_nationality)
             sleep(1)
             # extend residence permit
             BerlinBot.click(driver, "Selecting - extend residence permit", By.XPATH,
@@ -123,10 +125,8 @@ class BerlinBot:
 
         except TimeoutException as toe:
             logging.error("TimeoutException occurred - %s", toe.msg)
-            #notifier.send_to_telegram("💀{0}".format(toe.msg))
             BerlinBot.restart(driver)
         except Exception as exp:
-            #notifier.send_to_telegram("💀 Exception occurred - {0}".format(e))
             logging.error("Exception occurred - %s , trace=%s", exp, traceback.format_exc())
             BerlinBot.restart(driver)
 
@@ -166,7 +166,6 @@ class BerlinBot:
         with (custom_webdriver.WebDriver() as driver):
             driver.maximize_window()
             logging.info("Round - # %d, SessionId=%s", rounds, driver.session_id)
-            #notifier.send_to_telegram("Round - {0}, SessionId={1}".format(rounds, driver.session_id))
             try:
                 BerlinBot.enter_start_page(driver)
                 BerlinBot.tick_off_agreement(driver)
@@ -204,9 +203,6 @@ class BerlinBot:
             return False
 
     def run_loop(self):
-        # play sound to check if it works
-        #notifier.send_to_telegram(" BOT Running for *VISA extension* APPOINTMENT")
-        #sound.play_sound_osx(_sound_file)
         rounds = 0
         while True:
             rounds = rounds + 1
@@ -223,5 +219,4 @@ if __name__ == "__main__":
 
         BerlinBot().run_loop()
     except BaseException as e:
-        #notifier.send_to_telegram("💀 Exception occurred - {0}".format(e))
         logging.error("Exception occurred - %s , trace=%s", e, traceback.format_exc())
