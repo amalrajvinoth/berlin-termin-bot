@@ -9,7 +9,7 @@ from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-import notifier
+from common import notifier
 import sound
 
 _sound_file = os.path.join(os.getcwd(), "alarm.wav")
