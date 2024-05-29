@@ -1,222 +1,184 @@
 import logging
 import os
-import sys
-import time
-import traceback
 from platform import system
 
-import coloredlogs
 from dotenv import load_dotenv
-from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException
+from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.chrome import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.wait import WebDriverWait
 
-from common import custom_webdriver, notifier
-import sound
+from common import custom_webdriver
+from common.common_util import send_success_message, find_by_xpath, count_by_xpath, sleep, select_dropdown, \
+    init_logger
 
-_sound_file = os.path.join(os.getcwd(), "alarm.wav")
-
-def sleep(seconds=2):
-    logging.info("Sleeping for %d seconds", seconds)
-    time.sleep(seconds)
+url = "https://otv.verwalt-berlin.de/ams/TerminBuchen"
+bot_name = "lea_berlin_bot"
+success_message = "✅ possible AUSLANDERHORDE APPOINTMENT found. Please hurry to book your appointment by selecting first available time and captcha."
 
 
 class BerlinBot:
+    def __init__(self):
+        self._driver = custom_webdriver.WebDriver(bot_name).__enter__()
+        self._bot_name = bot_name
 
-    @staticmethod
-    def check_exists_by_xpath(driver: webdriver.WebDriver, xpath: str):
-        return BerlinBot.find_by_xpath(driver, xpath)
+    def find_appointment(self):
+        rounds = 0
+        while True:
+            rounds = rounds + 1
+            self.fill_search_form(rounds)
+            sleep(2)
 
-    @staticmethod
-    def count_by_xpath(driver: webdriver.WebDriver, xpath: str):
-        return driver.find_elements(By.XPATH, xpath)
+    def fill_search_form(self, rounds=0):
+        logging.info("Round - # %d, SessionId=%s", rounds, self._driver.session_id)
+        self.enter_start_page()
+        self.tick_off_agreement()
+        self.enter_form()
 
-    @staticmethod
-    def find_by_xpath(driver: webdriver.WebDriver, xpath: str, retry=3):
-        for i in range(retry):
-            try:
-                return driver.find_element(By.XPATH, xpath)
-            except NoSuchElementException as exception:
-                logging.warning("%s, retry=%d", str(exception.msg), i)
+        # retry submit
+        for i in range(1,10):
+            sleep(2)
 
-    @staticmethod
-    def submit_form(driver: webdriver.WebDriver, element_name, selector_type, selector):
-        logging.info(element_name)
-        if BerlinBot.is_success(driver):
-            BerlinBot._success()
-        else:
-            BerlinBot.click(driver, element_name, selector_type, selector)
+            count = self.visa_extension_button_count()
+            if count > 3:
+                logging.error("Duplicate button found, count=%d, restarting..", count)
+                raise Exception("Duplicate button found, count=%d", count)
 
-    @staticmethod
-    def is_success(driver: webdriver.WebDriver):
-        return ("applicationForm:managedForm:proceed" not in custom_webdriver.get_page_source(driver)
-                and "messagesBox" not in custom_webdriver.get_page_source(driver)
-                and BerlinBot.is_visa_extension_button_not_found(driver)
-                and "recaptcha" not in custom_webdriver.get_page_source(driver))
-
-    @staticmethod
-    def click(driver: webdriver.WebDriver, element_name, selector_type, selector):
-        for i in range(3):
-            try:
-                WebDriverWait(driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
+            if self.is_error_message("späteren Zeitpunkt"):
+                logging.warning("Got message - Try again later, retrying..")
+            elif self.is_error_message("beendet"):
+                logging.warning("Session closed message found, retrying..")
+                raise Exception("Session closed message found")
+            elif self.is_error_message("keine Termine frei"):
+                logging.warning("No appointment available, retrying..")
+            elif self.is_success():
+                send_success_message(self._driver, bot_name, success_message)
                 break
-            except ElementClickInterceptedException as ecie:
-                logging.warning("%s, retry=%d, (%s)", str(ecie.msg), i, element_name)
-            except TimeoutException as exception:
-                logging.warning("%s, retry=%d, (%s)", str(exception.msg), i, element_name)
+            logging.warning("Retry submitting form - # %d ", i)
+            self.enter_form()
 
-    @staticmethod
-    def enter_start_page(driver: webdriver.WebDriver):
-        logging.info("Visit start page")
-        driver.get("https://otv.verwalt-berlin.de/ams/TerminBuchen")
-        while BerlinBot.find_by_xpath(driver, "//*[contains(text(),'500 - Internal Server Error')]", 0):
-            logging.error("Page error - 500 - Internal Server Error")
-            sleep(1)
-            driver.refresh()
-        BerlinBot.click(driver, "Start page", By.XPATH,
-                        '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
-
-    @staticmethod
-    def tick_off_agreement(driver: webdriver.WebDriver):
-        logging.info("Ticking off agreement")
-        BerlinBot.click(driver, "Select agreement", By.XPATH,
-                        '//*[@id="xi-div-1"]/div[4]/label[2]/p')
-        BerlinBot.click(driver, "Submit button", By.ID, 'applicationForm:managedForm:proceed')
-
-    @staticmethod
-    def enter_form(driver: webdriver.WebDriver):
-        while "Angaben zum Anliegen" not in custom_webdriver.get_page_source(driver):
+    def enter_form(self):
+        while "Angaben zum Anliegen" not in custom_webdriver.get_page_source(self._driver):
             sleep(1)
         logging.info("Fill out form")
         nationality = os.environ.get("LEA_NATIONALITY")
         num_of_person = os.environ.get("LEA_NUMBER_OF_PERSON")
         family_living_in_berlin = os.environ.get("LEA_LIVING_IN_BERLIN")
         family_nationality = os.environ.get("LEA_NATIONALITY_OF_FAMILY_MEMBERS")
+        visa_category = os.environ.get("LEA_VISA_CATEGORY")
+        family_reason_category = os.environ.get("LEA_FAMILY_REASON_CATEGORY")
+        family_reason = os.environ.get("LEA_FAMILY_REASON")
 
         try:
-            # Citizenship = Indien 
-            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-400', nationality)
+            # Citizenship = Indien
+            select_dropdown(self._driver, By.ID, 'xi-sel-400', nationality)
             # number of person
-            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-422', num_of_person)
+            select_dropdown(self._driver, By.ID, 'xi-sel-422', num_of_person)
             # Living with family member?
-            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-427', family_living_in_berlin)
+            select_dropdown(self._driver, By.ID, 'xi-sel-427', family_living_in_berlin)
             # Family member Citizenship = Indien
-            BerlinBot.select_dropdown(driver, By.ID, 'xi-sel-428', family_nationality)
+            select_dropdown(self._driver, By.ID, 'xi-sel-428', family_nationality)
             sleep(1)
+
+            self.restart_if_duplicate_buttons_found()
+
             # extend residence permit
-            BerlinBot.click(driver, "Selecting - extend residence permit", By.XPATH,
-                            '//label[@for="SERVICEWAHL_DE3436-0-2"]')
+            self.click_by_xpath("Selecting - visa category", By.XPATH,
+                                '//*[contains(text(),"' + visa_category + '")]')
 
             # family reasons
-            BerlinBot.click(driver, "Clicking - family reasons", By.XPATH,
-                            '//*[@id="inner-436-0-2"]/div/div[5]/label/p')
+            # driver.find_element(By.XPATH,
+            #                     '//*[contains(text(), "'+family_reason_category+'")]/preceding-sibling::input').click()
+            self.click_by_xpath("Clicking - family reasons", By.XPATH,
+                                '//*[@id="inner-436-0-2"]/div/div[5]/label/p')
 
             # Residence permit for spouses, parents and children of foreign family members (§§ 29-34)
-            BerlinBot.click(driver, "Selecting - Residence permit for spouses, "
-                                    "parents and children of foreign family members (§§ 29-34)", By.XPATH,
-                            '//*[@id="inner-436-0-2"]/div/div[6]/div/div[3]/label')
+            # self.click_by_xpath(self._driver,"Selecting - family reason = "+family_reason, By.XPATH,
+            #                 '//*[contains(text(),"'+family_reason+'")]')
+            self.click_by_xpath("Selecting - Residence permit for spouses, "
+                                "parents and children of foreign family members (§§ 29-34)", By.XPATH,
+                                '//*[@id="inner-436-0-2"]/div/div[6]/div/div[3]/label')
 
             # submit form
-            BerlinBot.submit_form(driver, "Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
+            self.submit_form("Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
 
         except TimeoutException as toe:
-            logging.error("TimeoutException occurred - %s", toe.msg)
-            BerlinBot.restart(driver)
+            raise Exception("TimeoutException occurred - {0}".format(toe.msg))
         except Exception as exp:
-            logging.error("Exception occurred - %s , trace=%s", exp, traceback.format_exc())
-            BerlinBot.restart(driver)
+            raise Exception("Exception occurred - {0}".format(exp) )
 
-    @staticmethod
-    def restart(driver):
-        driver.__exit__(None, None, None)
-        BerlinBot().run_loop()
-
-    @staticmethod
-    def select_dropdown(driver: webdriver.WebDriver, selector_type, selector, value):
+    def click_by_xpath(self, element_name, selector_type, selector):
         for i in range(3):
             try:
-                s = Select(driver.find_element(selector_type, selector))
-                s.select_by_visible_text(value)
+                WebDriverWait(self._driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
                 break
-            except Exception as exception:
-                logging.warning("%s, retry=%d (%s)", str(exception.__cause__), i, value)
+            except Exception as ex:
+                logging.warning("%s, retry=%d, (%s)", str(ex.__cause__), i, element_name)
 
-    @staticmethod
-    def is_visa_extension_button_not_found(driver: webdriver.WebDriver):
-        return len(BerlinBot.count_by_xpath(driver, '//label[@for="SERVICEWAHL_DE3436-0-2"]')) == 0
+    def submit_form(self, element_name, selector_type, selector):
+        logging.info(element_name)
+        if self.is_success():
+            send_success_message(self._driver, bot_name, success_message)
+        else:
+            self.click_by_xpath(element_name, selector_type, selector)
 
-    @staticmethod
-    def visa_extension_button_count(driver):
-        return len(BerlinBot.count_by_xpath(driver, '//*[contains(text(),"Aufenthaltstitel - verlängern")]'))
+    def enter_start_page(self):
+        logging.info("Visit start page")
+        self._driver.get(url)
+        while find_by_xpath(self._driver, "//*[contains(text(),'500 - Internal Server Error')]", 0):
+            logging.error("Page error - 500 - Internal Server Error")
+            sleep(1)
+            self._driver.refresh()
+        self.click_by_xpath("Start page", By.XPATH,
+                            '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
 
-    @staticmethod
-    def _success():
-        logging.info("!!!SUCCESS - do not close the window!!!!")
-        notifier.send_to_telegram("✅ POSSIBLE *AUSLANDERHORDE* APPOINTMENT FOUND. Please hurry to book your appointment by selecting first available time and captcha.")
-        while True:
-            sound.play_sound_osx(_sound_file)
-            sleep(300)
+    def is_success(self):
+        return ("applicationForm:managedForm:proceed" not in custom_webdriver.get_page_source(self._driver)
+                and "messagesBox" not in custom_webdriver.get_page_source(self._driver)
+                and self.is_visa_extension_button_not_found()
+                and "recaptcha" not in custom_webdriver.get_page_source(self._driver))
 
-    @staticmethod
-    def run_once(rounds=0):
-        with (custom_webdriver.WebDriver() as driver):
-            driver.maximize_window()
-            logging.info("Round - # %d, SessionId=%s", rounds, driver.session_id)
-            try:
-                BerlinBot.enter_start_page(driver)
-                BerlinBot.tick_off_agreement(driver)
-                BerlinBot.enter_form(driver)
+    def tick_off_agreement(self):
+        logging.info("Ticking off agreement")
+        self.click_by_xpath("Select agreement", By.XPATH,
+                            '//*[@id="xi-div-1"]/div[4]/label[2]/p')
+        self.click_by_xpath("Submit button", By.ID, 'applicationForm:managedForm:proceed')
 
-                # retry submit
-                for i in range(10):
-                    sleep(2)
+    def restart(self):
+        self._driver.__exit__(None, None, None)
 
-                    count = BerlinBot.visa_extension_button_count(driver)
-                    if count > 3:
-                        logging.error("Duplicate button found, count=%d, restarting..", count)
-                        BerlinBot().restart(driver)
-                        break
-                    if BerlinBot.is_error_message(driver, "späteren Zeitpunkt"):
-                        logging.warning("Got message - Try again later, retrying..")
-                    elif BerlinBot.is_error_message(driver, "beendet"):
-                        logging.warning("Session closed message found, retrying..")
-                    elif BerlinBot.is_error_message(driver, "keine Termine frei"):
-                        logging.warning("No appointment available, retrying..")
-                    elif BerlinBot.is_success(driver):
-                        BerlinBot._success()
-                        break
-                    logging.warning("Retry submitting form - # %d ", i)
-                    BerlinBot.enter_form(driver)
-            finally:
-                driver.quit()
+    def is_visa_extension_button_not_found(self):
+        return self.visa_extension_button_count() == 0
 
-    @staticmethod
-    def is_error_message(driver, message):
+    def visa_extension_button_count(self):
+        return len(count_by_xpath(self._driver, '//*[contains(text(),"' + os.environ.get("LEA_VISA_CATEGORY") + '")]'))
+
+    def restart_if_duplicate_buttons_found(self):
+        if self.visa_extension_button_count() > 3:
+            self.restart()
+
+    def is_error_message(self, message):
         try:
-            return driver.find_element(By.XPATH, '//*[@id="messagesBox"]/ul/li[contains(text(), "'+message+'")]')
+            return find_by_xpath(self._driver,
+                                 '//*[@id="messagesBox"]/ul/li[contains(text(), "' + message + '")]')
         except NoSuchElementException as exception:
             logging.warning("%s", str(exception.msg))
             return False
 
-    def run_loop(self):
-        rounds = 0
-        while True:
-            rounds = rounds + 1
-            self.run_once(rounds)
-            sleep(2)
+    @property
+    def driver(self):
+        return self._driver
 
 
 if __name__ == "__main__":
+    berlin_bot = BerlinBot()
     try:
-        sys.tracebacklimit = 0
-        coloredlogs.install()
+        # sys.tracebacklimit = 0
         system = system()
         load_dotenv()
-
-        BerlinBot().run_loop()
+        init_logger('LEA')
+        berlin_bot.find_appointment()
     except BaseException as e:
-        logging.error("Exception occurred - %s , trace=%s", e, traceback.format_exc())
+        logging.exception("Exception occurred, message= {0}".format(e))
+        berlin_bot.find_appointment()

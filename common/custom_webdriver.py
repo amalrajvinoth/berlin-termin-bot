@@ -2,8 +2,10 @@
 import logging
 
 from selenium import webdriver
+from selenium.webdriver import DesiredCapabilities
 
 from common import notifier
+
 
 def get_page_source(driver: webdriver.Chrome):
     for i in range(3):
@@ -18,17 +20,22 @@ def get_page_source(driver: webdriver.Chrome):
 
 
 class WebDriver:
-    def __init__(self):
+    def __init__(self, bot_name):
         self._driver: webdriver.Chrome
-        self._implicit_wait_time = 10
+        self._implicit_wait_time = 60
+        self._bot_name = bot_name
 
     def __enter__(self) -> webdriver.Chrome:
         logging.info("Open browser")
         # some stuff that prevents us from being locked out
         options = webdriver.ChromeOptions()
         options.add_argument('--disable-blink-features=AutomationControlled')
-        self._driver = webdriver.Chrome(options=options)
-        self._driver.implicitly_wait(self._implicit_wait_time)  # seconds
+        options.add_argument("--start-maximized")
+        capabilities = DesiredCapabilities.CHROME.copy()
+        capabilities['pageLoadStrategy'] = 'normal'
+        self._driver = webdriver.Chrome(options=options, desired_capabilities=capabilities)
+        self._driver.implicitly_wait(10)  # seconds
+        self._driver.set_page_load_timeout(60)  # seconds
         self._driver.execute_script(
             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         self._driver.execute_cdp_cmd('Network.setUserAgentOverride', {
@@ -39,6 +46,8 @@ class WebDriver:
     def __exit__(self, exc_type, exc_value, exc_tb):
         logging.info("Close browser")
         if exc_type is not None:
-            notifier.send_to_telegram(
-                "💀Quiting program due to {0} = {1} at {2}".format(exc_type, exc_value, exc_tb))
+            notifier.send_to_telegram("💀Quiting program due to {0}".format(exc_type))
         self._driver.quit()
+
+    def __get__(self):
+        return self._driver

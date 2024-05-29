@@ -11,9 +11,10 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from common import notifier
 import sound
+import coloredlogs
 
 _sound_file = os.path.join(os.getcwd(), "alarm.wav")
-
+path = os.path.expanduser('~')+'/Downloads/'
 
 def sleep(seconds=2):
     logging.info("Sleeping for %d seconds", seconds)
@@ -51,9 +52,11 @@ def select_dropdown(driver: webdriver.WebDriver, selector_type, selector, value)
         except Exception as exception:
             logging.warning("%s, retry=%d (%s)", str(exception.__cause__), i, value)
 
-def send_success_message(message):
+def send_success_message(driver, termin_name, message):
     logging.info("!!!SUCCESS - do not close the window!!!!")
-    notifier.send_to_telegram(message)
+    save_screenshot(driver, termin_name)
+    #notifier.send_to_telegram(termin_name + ' : '+message)
+    notifier.send_photo_to_telegram(message, photo_path=path + termin_name + '_' + driver.session_id + '.png')
     while True:
         sound.play_sound_osx(_sound_file)
         sleep(300)
@@ -91,3 +94,30 @@ def get_wait_time(driver):
     #logging.info("time_to_wait = %s", time_to_wait)
     time_to_wait_in_sec = int(time_to_wait.split(':')[1])
     return time_to_wait_in_sec
+
+def save_screenshot(driver, termin_name):
+    el = driver.find_element(By.TAG_NAME, 'body')
+    el.screenshot(path + termin_name + '_' + driver.session_id + '.png')
+
+def init_logger(name):
+    if not os.getenv('COLOREDLOGS_LOG_FORMAT'):
+        styles = dict(
+            spam=dict(color='green', faint=True),
+            debug=dict(color='green'),
+            verbose=dict(color='blue'),
+            info=dict(),
+            notice=dict(color='magenta'),
+            warning=dict(color='yellow'),
+            success=dict(color='green', bold=True),
+            error=dict(background='red'),
+            critical=dict(color='red', bold=True),
+        )
+
+        fields_styles = dict(
+            levelname=dict(color='green', bold=True, faint=True),
+            asctime=dict(color='green', faint=True),
+            name=dict(color='green', bold=True)
+        )
+        coloredlogs.install(fmt='%(asctime)s.%(msecs)03d '+name+' - %(levelname)s %(message)s', level_styles=styles, field_styles=fields_styles)
+    else:
+        coloredlogs.install()

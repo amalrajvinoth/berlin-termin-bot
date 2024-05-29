@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import traceback
 from platform import system
@@ -12,11 +13,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 from common import custom_webdriver
-from common.common_util import sleep, click_by_xpath, send_success_message, wait_and_click_next, get_page_source
+from common.common_util import sleep, click_by_xpath, send_success_message, wait_and_click_next, get_page_source, \
+    init_logger
 
 url = "https://service.berlin.de/dienstleistung/120686"
-success_message = "✅ POSSIBLE *BERLIN APARTMENT* APPOINTMENT FOUND. Please hurry to book your appointment by selecting first available time."
+bot_name = "apartment_berlin_bot"
+success_message = "✅ possible BERLIN APARTMENT appointment found. Please hurry to book your appointment by selecting first available time."
 time_message = """00:00 Minuten"""
+
 
 class BerlinBot:
 
@@ -29,7 +33,7 @@ class BerlinBot:
 
     @staticmethod
     def find_appointment(rounds=0):
-        with (custom_webdriver.WebDriver() as driver):
+        with (custom_webdriver.WebDriver(bot_name) as driver):
             driver.maximize_window()
             logging.info("Round - # %d, SessionId=%s", rounds, driver.session_id)
             try:
@@ -38,7 +42,7 @@ class BerlinBot:
                 # retry submit
                 for i in range(10):
                     if BerlinBot.is_success(driver):
-                        send_success_message(success_message)
+                        send_success_message(driver, bot_name, success_message)
                         break
                     sleep(2)
 
@@ -47,6 +51,8 @@ class BerlinBot:
                         logging.warning("Got message - Try again later, retrying..")
                     elif "Bitte entschuldigen Sie den Fehler" in get_page_source(driver):
                         logging.warning("Server error, retrying..")
+                        BerlinBot.restart(driver)
+                        break
                     logging.warning("Retry - # %d ", i)
             finally:
                 driver.quit()
@@ -55,7 +61,7 @@ class BerlinBot:
     def search_berlin_wide(driver: webdriver.WebDriver, element_name, selector_type, selector):
         logging.info(element_name)
         if BerlinBot.is_success(driver):
-            send_success_message(success_message)
+            send_success_message(driver, bot_name, success_message)
         else:
             click_by_xpath(driver, element_name, selector_type, selector)
 
@@ -66,11 +72,12 @@ class BerlinBot:
 
     @staticmethod
     def enter_start_page(driver: webdriver.ChromiumDriver):
-        #logging.info("Visit start page")
+        # logging.info("Visit start page")
         driver.get(url)
         elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Berlinweite Terminbuchung')]")
         for element in elements:
-            WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Berlinweite Terminbuchung')]")))
+            WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Berlinweite Terminbuchung')]")))
             driver.execute_script("arguments[0].click();", element)
         sleep(2)
 
@@ -87,12 +94,13 @@ class BerlinBot:
             logging.warning("%s", str(exception.msg))
             return False
 
+
 if __name__ == "__main__":
     try:
-        sys.tracebacklimit = 0
-        coloredlogs.install()
+        # sys.tracebacklimit = 0
         system = system()
         load_dotenv()
+        init_logger('APT')
 
         BerlinBot().run_loop()
     except BaseException as e:
