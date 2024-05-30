@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from platform import system
 
 from dotenv import load_dotenv
@@ -47,7 +48,7 @@ class BerlinBot:
 
             if self.is_error_message("späteren Zeitpunkt"):
                 logging.warning("Got message - Try again later, retrying..")
-            elif self.is_error_message("beendet"):
+            elif self.is_error_message("beendet") or self.is_page_contains_text():
                 logging.warning("Session closed message found, retrying..")
                 raise Exception("Session closed message found")
             elif self.is_error_message("keine Termine frei"):
@@ -59,8 +60,7 @@ class BerlinBot:
             self.enter_form()
 
     def enter_form(self):
-        while "Angaben zum Anliegen" not in custom_webdriver.get_page_source(self._driver):
-            sleep(1)
+        self.wait_for_mainform()
         logging.info("Fill out form")
         nationality = os.environ.get("LEA_NATIONALITY")
         num_of_person = os.environ.get("LEA_NUMBER_OF_PERSON")
@@ -108,6 +108,10 @@ class BerlinBot:
         except Exception as exp:
             raise Exception("Exception occurred - {0}".format(exp) )
 
+    def wait_for_mainform(self):
+        while not self.is_page_contains_text("Angaben zum Anliegen"):
+            sleep(1)
+
     def click_by_xpath(self, element_name, selector_type, selector):
         for i in range(3):
             try:
@@ -134,10 +138,10 @@ class BerlinBot:
                             '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
 
     def is_success(self):
-        return ("applicationForm:managedForm:proceed" not in custom_webdriver.get_page_source(self._driver)
-                and "messagesBox" not in custom_webdriver.get_page_source(self._driver)
+        return (not self.is_page_contains_text("applicationForm:managedForm:proceed")
+                and not self.is_page_contains_text("messagesBox")
                 and self.is_visa_extension_button_not_found()
-                and "recaptcha" not in custom_webdriver.get_page_source(self._driver))
+                and not self.is_page_contains_text("recaptcha"))
 
     def tick_off_agreement(self):
         logging.info("Ticking off agreement")
@@ -145,8 +149,10 @@ class BerlinBot:
                             '//*[@id="xi-div-1"]/div[4]/label[2]/p')
         self.click_by_xpath("Submit button", By.ID, 'applicationForm:managedForm:proceed')
 
-    def restart(self):
+    def restart(self, reason):
+        logging.warning("Driver exit for restart")
         self._driver.__exit__(None, None, None)
+        raise Exception("restart due to: "+reason)
 
     def is_visa_extension_button_not_found(self):
         return self.visa_extension_button_count() == 0
@@ -156,7 +162,7 @@ class BerlinBot:
 
     def restart_if_duplicate_buttons_found(self):
         if self.visa_extension_button_count() > 3:
-            self.restart()
+            self.restart("duplicate buttons found")
 
     def is_error_message(self, message):
         try:
@@ -166,19 +172,25 @@ class BerlinBot:
             logging.warning("%s", str(exception.msg))
             return False
 
+    def is_page_contains_text(self, text):
+        try:
+            return text in custom_webdriver.get_page_source(self._driver)
+        except Exception as ex:
+            logging.warning("%s", str(ex))
+            return False
+
     @property
     def driver(self):
         return self._driver
 
 
 if __name__ == "__main__":
-    berlin_bot = BerlinBot()
     try:
-        # sys.tracebacklimit = 0
+        sys.tracebacklimit = 0
         system = system()
         load_dotenv()
         init_logger('LEA')
-        berlin_bot.find_appointment()
+        BerlinBot().find_appointment()
     except BaseException as e:
         logging.exception("Exception occurred, message= {0}".format(e))
-        berlin_bot.find_appointment()
+        BerlinBot().find_appointment()
