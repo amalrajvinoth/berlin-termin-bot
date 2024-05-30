@@ -1,7 +1,5 @@
 import logging
 import os
-import sys
-from platform import system
 
 from dotenv import load_dotenv
 from selenium.common.exceptions import NoSuchElementException
@@ -10,7 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
-from common import custom_webdriver
+from common.custom_webdriver import WebDriver, get_page_source
 from common.common_util import send_success_message, find_by_xpath, count_by_xpath, sleep, select_dropdown, \
     init_logger
 
@@ -21,7 +19,7 @@ success_message = "✅ possible AUSLANDERHORDE APPOINTMENT found. Please hurry t
 
 class BerlinBot:
     def __init__(self):
-        self._driver = custom_webdriver.WebDriver(bot_name).__enter__()
+        self._driver = WebDriver(bot_name).__enter__()
         self._bot_name = bot_name
 
     def find_appointment(self):
@@ -38,10 +36,8 @@ class BerlinBot:
         self.enter_form()
 
         # retry submit
-        for i in range(1,10):
+        for i in range(1, 10):
             sleep(2)
-
-            self.restart_if_required()
 
             if self.is_error_message("späteren Zeitpunkt"):
                 logging.warning("Got message - Try again later, retrying..")
@@ -50,8 +46,22 @@ class BerlinBot:
             elif self.is_success():
                 send_success_message(self._driver, bot_name, success_message)
                 break
+
+            if not self.is_page_contains_text("Verbleibende Zeit:"):
+                self.restart_if_required()
+
             logging.warning("Retry submitting form - # %d ", i)
-            self.enter_form()
+            self.submit_form("Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
+
+    def enter_start_page(self):
+        logging.info("Visit start page")
+        self._driver.get(url)
+        while find_by_xpath(self._driver, "//*[contains(text(),'500 - Internal Server Error')]", 0):
+            logging.error("Page error - 500 - Internal Server Error")
+            sleep(1)
+            self._driver.refresh()
+        self.click_by_xpath("Start page", By.XPATH,
+                            '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
 
     def enter_form(self):
         self.wait_for_mainform()
@@ -71,6 +81,7 @@ class BerlinBot:
             select_dropdown(self._driver, By.ID, 'xi-sel-422', num_of_person)
             # Living with family member?
             select_dropdown(self._driver, By.ID, 'xi-sel-427', family_living_in_berlin)
+            sleep(1)
             # Family member Citizenship = Indien
             select_dropdown(self._driver, By.ID, 'xi-sel-428', family_nationality)
             sleep(1)
@@ -78,30 +89,30 @@ class BerlinBot:
             self.restart_if_required()
 
             # extend residence permit
-            self.click_by_xpath("Selecting - visa category", By.XPATH,
+            self.click_by_xpath("Selecting - visa category = "+ visa_category, By.XPATH,
                                 '//*[contains(text(),"' + visa_category + '")]')
 
             # family reasons
-            # driver.find_element(By.XPATH,
-            #                     '//*[contains(text(), "'+family_reason_category+'")]/preceding-sibling::input').click()
-            self.click_by_xpath("Clicking - family reasons", By.XPATH,
-                                '//*[@id="inner-436-0-2"]/div/div[5]/label/p')
+            self.click_by_xpath("Selecting - reason category = "+family_reason_category, By.XPATH,
+                                '//*[contains(text(),"' + family_reason_category + '")]')
 
             # Residence permit for spouses, parents and children of foreign family members (§§ 29-34)
-            # self.click_by_xpath(self._driver,"Selecting - family reason = "+family_reason, By.XPATH,
-            #                 '//*[contains(text(),"'+family_reason+'")]')
-            self.click_by_xpath("Selecting - Residence permit for spouses, "
-                                "parents and children of foreign family members (§§ 29-34)", By.XPATH,
-                                '//*[@id="inner-436-0-2"]/div/div[6]/div/div[3]/label')
+            self.click_by_xpath("Selecting - family reason = " + family_reason, By.XPATH,
+                                '//*[contains(text(),"' + family_reason + '")]')
 
-            # submit form
             self.restart_if_required()
-            self.submit_form("Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
 
         except TimeoutException as toe:
             raise Exception("TimeoutException - {0}".format(toe.msg))
         except Exception as exp:
-            raise Exception("Exception - {0}".format(str(exp)) )
+            raise Exception(exp)
+
+    def submit_form(self, element_name, selector_type, selector):
+        logging.info(element_name)
+        if self.is_success():
+            send_success_message(self._driver, bot_name, success_message)
+        else:
+            self.click_by_xpath(element_name, selector_type, selector)
 
     def wait_for_mainform(self):
         while not self.is_page_contains_text("Angaben zum Anliegen"):
@@ -112,27 +123,11 @@ class BerlinBot:
     def click_by_xpath(self, element_name, selector_type, selector):
         for i in range(3):
             try:
+                logging.info(element_name)
                 WebDriverWait(self._driver, 10).until(EC.element_to_be_clickable((selector_type, selector))).click()
                 break
             except Exception as ex:
                 logging.warning("%s, retry=%d, (%s)", str(ex.__cause__), i, element_name)
-
-    def submit_form(self, element_name, selector_type, selector):
-        logging.info(element_name)
-        if self.is_success():
-            send_success_message(self._driver, bot_name, success_message)
-        else:
-            self.click_by_xpath(element_name, selector_type, selector)
-
-    def enter_start_page(self):
-        logging.info("Visit start page")
-        self._driver.get(url)
-        while find_by_xpath(self._driver, "//*[contains(text(),'500 - Internal Server Error')]", 0):
-            logging.error("Page error - 500 - Internal Server Error")
-            sleep(1)
-            self._driver.refresh()
-        self.click_by_xpath("Start page", By.XPATH,
-                            '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
 
     def is_success(self):
         return (not self.is_page_contains_text("applicationForm:managedForm:proceed")
@@ -158,7 +153,7 @@ class BerlinBot:
 
     def restart_if_duplicate_buttons_found(self):
         count = self.visa_extension_button_count()
-        if  count > 3:
+        if count > 3:
             logging.error("Duplicate button found, count=%d, restarting..", count)
             raise Exception("Duplicate buttons found")
 
@@ -166,7 +161,6 @@ class BerlinBot:
         if self.is_error_message("beendet", 1) or self.is_session_closed():
             logging.warning("Session closed message found, retrying..")
             raise Exception("Session closed message found")
-
 
     def is_error_message(self, message, retry=3):
         try:
@@ -178,7 +172,7 @@ class BerlinBot:
 
     def is_page_contains_text(self, text):
         try:
-            return text in custom_webdriver.get_page_source(self._driver)
+            return text in  get_page_source(self._driver)
         except Exception as ex:
             logging.warning("%s", str(ex))
             return False
@@ -199,7 +193,7 @@ if __name__ == "__main__":
     while True:
         berlin_bot = BerlinBot()
         try:
-            #sys.tracebacklimit = 0
+            # sys.tracebacklimit = 0
             load_dotenv()
             init_logger('LEA')
             berlin_bot.find_appointment()

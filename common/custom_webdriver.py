@@ -46,7 +46,7 @@ class WebDriver:
     def __exit__(self, exc_type, exc_value, exc_tb):
         logging.info("Close browser")
         if exc_type is not None:
-            notifier.send_to_telegram("💀Quiting program due to {0}".format(exc_type))
+            notifier.send_to_telegram("{0} 💀Quiting program due to {1}".format(self._bot_name, exc_type))
         self._driver.quit()
 
     def __get__(self):

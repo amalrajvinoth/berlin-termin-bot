@@ -9,9 +9,9 @@ from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from common import notifier
-import sound
 import coloredlogs
+
+from common import notifier, sound
 
 _sound_file = os.path.join(os.getcwd(), "alarm.wav")
 path = os.path.expanduser('~')+'/Downloads/'
