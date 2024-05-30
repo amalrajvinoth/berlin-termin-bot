@@ -41,16 +41,10 @@ class BerlinBot:
         for i in range(1,10):
             sleep(2)
 
-            count = self.visa_extension_button_count()
-            if count > 3:
-                logging.error("Duplicate button found, count=%d, restarting..", count)
-                raise Exception("Duplicate button found, count=%d", count)
+            self.restart_if_required()
 
             if self.is_error_message("späteren Zeitpunkt"):
                 logging.warning("Got message - Try again later, retrying..")
-            elif self.is_error_message("beendet") or self.is_page_contains_text():
-                logging.warning("Session closed message found, retrying..")
-                raise Exception("Session closed message found")
             elif self.is_error_message("keine Termine frei"):
                 logging.warning("No appointment available, retrying..")
             elif self.is_success():
@@ -81,7 +75,7 @@ class BerlinBot:
             select_dropdown(self._driver, By.ID, 'xi-sel-428', family_nationality)
             sleep(1)
 
-            self.restart_if_duplicate_buttons_found()
+            self.restart_if_required()
 
             # extend residence permit
             self.click_by_xpath("Selecting - visa category", By.XPATH,
@@ -101,15 +95,18 @@ class BerlinBot:
                                 '//*[@id="inner-436-0-2"]/div/div[6]/div/div[3]/label')
 
             # submit form
+            self.restart_if_required()
             self.submit_form("Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
 
         except TimeoutException as toe:
-            raise Exception("TimeoutException occurred - {0}".format(toe.msg))
+            raise Exception("TimeoutException - {0}".format(toe.msg))
         except Exception as exp:
-            raise Exception("Exception occurred - {0}".format(exp) )
+            raise Exception("Exception - {0}".format(str(exp)) )
 
     def wait_for_mainform(self):
         while not self.is_page_contains_text("Angaben zum Anliegen"):
+            if self.is_session_closed():
+                raise Exception("Session closed")
             sleep(1)
 
     def click_by_xpath(self, element_name, selector_type, selector):
@@ -149,25 +146,32 @@ class BerlinBot:
                             '//*[@id="xi-div-1"]/div[4]/label[2]/p')
         self.click_by_xpath("Submit button", By.ID, 'applicationForm:managedForm:proceed')
 
-    def restart(self, reason):
-        logging.warning("Driver exit for restart")
-        self._driver.__exit__(None, None, None)
-        raise Exception("restart due to: "+reason)
-
     def is_visa_extension_button_not_found(self):
         return self.visa_extension_button_count() == 0
 
     def visa_extension_button_count(self):
         return len(count_by_xpath(self._driver, '//*[contains(text(),"' + os.environ.get("LEA_VISA_CATEGORY") + '")]'))
 
-    def restart_if_duplicate_buttons_found(self):
-        if self.visa_extension_button_count() > 3:
-            self.restart("duplicate buttons found")
+    def restart_if_required(self):
+        self.restart_if_duplicate_buttons_found()
+        self.restart_if_session_closed()
 
-    def is_error_message(self, message):
+    def restart_if_duplicate_buttons_found(self):
+        count = self.visa_extension_button_count()
+        if  count > 3:
+            logging.error("Duplicate button found, count=%d, restarting..", count)
+            raise Exception("Duplicate buttons found")
+
+    def restart_if_session_closed(self):
+        if self.is_error_message("beendet", 1) or self.is_session_closed():
+            logging.warning("Session closed message found, retrying..")
+            raise Exception("Session closed message found")
+
+
+    def is_error_message(self, message, retry=3):
         try:
             return find_by_xpath(self._driver,
-                                 '//*[@id="messagesBox"]/ul/li[contains(text(), "' + message + '")]')
+                                 '//*[@id="messagesBox"]/ul/li[contains(text(), "' + message + '")]', retry)
         except NoSuchElementException as exception:
             logging.warning("%s", str(exception.msg))
             return False
@@ -183,14 +187,21 @@ class BerlinBot:
     def driver(self):
         return self._driver
 
+    def is_session_closed(self):
+        return self.is_page_contains_text("Sitzungsende")
+
+    def close(self, message):
+        logging.exception("Close due to error= {0}".format(message))
+        self._driver.quit()
+
 
 if __name__ == "__main__":
-    try:
-        sys.tracebacklimit = 0
-        system = system()
-        load_dotenv()
-        init_logger('LEA')
-        BerlinBot().find_appointment()
-    except BaseException as e:
-        logging.exception("Exception occurred, message= {0}".format(e))
-        BerlinBot().find_appointment()
+    while True:
+        berlin_bot = BerlinBot()
+        try:
+            #sys.tracebacklimit = 0
+            load_dotenv()
+            init_logger('LEA')
+            berlin_bot.find_appointment()
+        except BaseException as e:
+            berlin_bot.close(str(e))

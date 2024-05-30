@@ -98,7 +98,6 @@ class BerlinBot:
 if __name__ == "__main__":
     try:
         # sys.tracebacklimit = 0
-        system = system()
         load_dotenv()
         init_logger('APT')
 
