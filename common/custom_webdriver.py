@@ -20,19 +20,24 @@ def get_page_source(driver: webdriver.Chrome):
 
 
 class WebDriver:
-    def __init__(self, bot_name):
+    def __init__(self, bot_name, start_headless=False):
         self._driver: webdriver.Chrome
         self._implicit_wait_time = 60
         self._bot_name = bot_name
+        self._headless = start_headless
 
     def __enter__(self) -> webdriver.Chrome:
         logging.info("Open browser")
         # some stuff that prevents us from being locked out
         options = webdriver.ChromeOptions()
         options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument("--start-maximized")
+        options.set_capability('unhandledPromptBehavior', 'accept')
+        if self._headless:
+            options.add_argument('--headless')
+        #options.add_argument("--start-maximized")
         capabilities = DesiredCapabilities.CHROME.copy()
         capabilities['pageLoadStrategy'] = 'normal'
+        capabilities['unexpectedAlertBehaviour'] = 'accept'
         self._driver = webdriver.Chrome(options=options, desired_capabilities=capabilities)
         self._driver.implicitly_wait(10)  # seconds
         self._driver.set_page_load_timeout(60)  # seconds
@@ -41,6 +46,7 @@ class WebDriver:
         self._driver.execute_cdp_cmd('Network.setUserAgentOverride', {
             "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                          'Chrome/83.0.4103.53 Safari/537.36'})
+        self.__change_title__()
         return self._driver
 
     def __exit__(self, exc_type, exc_value, exc_tb):
@@ -51,3 +57,8 @@ class WebDriver:
 
     def __get__(self):
         return self._driver
+
+    def __change_title__(self):
+        self._driver.execute_script(f"document.title = '{self._bot_name} | {self._driver.title}';")
+
+    # Function to calculate right half position

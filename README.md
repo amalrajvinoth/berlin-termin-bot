@@ -28,8 +28,15 @@ curl https://api.telegram.org/bot<API_TOKEN>/getUpdates
 # LEA / Ausländerbehörde Configuration
 LEA_NATIONALITY=Indien
 LEA_NUMBER_OF_PERSON=drei Personen
-LEA_LIVING_IN_BERLIN=Ja
+LEA_LIVING_IN_BERLIN=ja
 LEA_NATIONALITY_OF_FAMILY_MEMBERS=Indien
+LEA_VISA_CATEGORY=Aufenthaltstitel - verlängern
+LEA_FAMILY_REASON_CATEGORY=Erwerbstätigkeit
+LEA_FAMILY_REASON=Aufenthaltserlaubnis für Fachkräfte mit akademischer Ausbildung (§ 18b)
+
+# APT / Bürgerämt configuration
+APT_DATE_RANGE_ENABLED=True
+APT_DATE_RANGE_END=21.06.2024
 
 # Telegram
 TELEGRAM_API_TOKEN=<Your_Telegram_API_Token>
