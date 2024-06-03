@@ -71,12 +71,16 @@ class BerlinBot:
             raise
 
     def is_success(self):
-        if bool(os.environ.get("APT_DATE_RANGE_ENABLED")) and is_page_contains_text(self._driver, "Bitte wählen Sie ein Datum:"):
+        if (bool(os.environ.get("APT_DATE_RANGE_ENABLED"))
+                and is_page_contains_text(self._driver, "Bitte wählen Sie ein Datum:")):
             if not self.expected_date_range_found():
                 sleep(10)
                 raise Exception("No expected dates found in date range, restarting")
+            else:
+                return True
         else:
-            return is_page_contains_text(self._driver, "Terminvereinbarung") and is_page_contains_text(self._driver, "Bitte wählen Sie ein Datum:")
+            return (is_page_contains_text(self._driver, "Terminvereinbarung")
+                    and is_page_contains_text(self._driver, "Bitte wählen Sie ein Datum:"))
 
     def enter_start_page(self):
         click_by_xpath(self._driver, "Berlinweite Terminbuchung", By.XPATH, "//*[contains(text(), 'Berlinweite Terminbuchung')]")
@@ -134,7 +138,7 @@ class BerlinBot:
                     date_obj = datetime.strptime(date_str, "%d.%m.%Y")
                     if start_date <= date_obj <= end_date:
                         logging.info("FOUND : "+aria_label)
-                        matching_links.append(link)
+                        matching_links.append(aria_label)
 
         return len(matching_links) > 0
 

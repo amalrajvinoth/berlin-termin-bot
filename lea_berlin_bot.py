@@ -12,15 +12,17 @@ from common.common_util import send_success_message, find_by_xpath, count_by_xpa
     init_logger, is_page_contains_text, handle_unexpected_alert
 from common.custom_webdriver import WebDriver
 
-url = "https://otv.verwalt-berlin.de/ams/TerminBuchen"
+page_url = "https://otv.verwalt-berlin.de/ams/TerminBuchen"
 bot_name = "lea_berlin_bot"
-success_message = "✅ possible AUSLANDERHORDE APPOINTMENT found. Please hurry to book your appointment by selecting first available time and captcha."
+success_message = ("✅ possible AUSLANDERHORDE APPOINTMENT found. Please hurry to book your appointment by selecting "
+                   "first available time and captcha.")
 
 
 class BerlinBot:
     def __init__(self):
         self._driver = WebDriver(bot_name).__enter__()
         self._bot_name = bot_name
+        self.driver.get(page_url)
 
     def find_appointment(self):
         rounds = 0
@@ -38,7 +40,10 @@ class BerlinBot:
         # retry submit
         for i in range(1, 10):
             sleep(2)
-            if (self.is_loader_not_visible()
+            if self.is_success():
+                send_success_message(self.driver, bot_name, success_message)
+                break
+            elif (self.is_loader_not_visible()
                     and not is_page_contains_text(self.driver, "Auswahl Termin")
                     and is_page_contains_text(self.driver, "Verbleibende Zeit:")
                     and is_page_contains_text(self.driver, "applicationForm:managedForm:proceed")):
@@ -75,7 +80,6 @@ class BerlinBot:
 
     def enter_start_page(self):
         logging.info("Visit start page")
-        self.driver.get(url)
         while find_by_xpath(self.driver, "//*[contains(text(),'500 - Internal Server Error')]", 0):
             logging.error("Page error - 500 - Internal Server Error")
             sleep(1)
@@ -155,10 +159,9 @@ class BerlinBot:
                     raise
 
     def is_success(self):
-        return (not is_page_contains_text(self._driver, "applicationForm:managedForm:proceed")
-                and not is_page_contains_text(self._driver,"messagesBox")
-                and self.is_visa_extension_button_not_found()
-                and not is_page_contains_text(self.driver, "recaptcha"))
+        return (self.is_loader_not_visible()
+                and is_page_contains_text(self.driver, "Ausgewählte Dienstleistung:")
+                and is_page_contains_text(self.driver, "recaptcha"))
 
     def tick_off_agreement(self):
         logging.info("Ticking off agreement")

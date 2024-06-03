@@ -73,21 +73,23 @@ def select_dropdown(driver: webdriver.WebDriver, selector_type, selector, value)
             logging.warning("%s, retry=%d (%s)", str(exception.__cause__), i, value)
 
 
-def send_success_message(driver, termin_name, message, wait=300):
+def send_success_message(driver, bot_name, message, wait=300):
     logging.info("!!!SUCCESS - do not close the window!!!!")
-    save_screenshot(driver, termin_name)
+    save_screenshot(driver, bot_name)
     # notifier.send_to_telegram(termin_name + ' : '+message)
-    notifier.send_photo_to_telegram(message, photo_path=path + termin_name + '_' + driver.session_id + '.png')
+    notifier.send_photo_to_telegram(message, photo_path=path + bot_name + '_' + driver.session_id + '.png')
     while True:
         sound.play_sound_osx(_sound_file)
         sleep(wait)
 
-def send_error_message(driver, termin_name, message, wait=300):
+
+def send_error_message(driver, bot_name, message, wait=300):
     logging.error("!!!ERROR - = %s !!!!", message)
-    save_screenshot(driver, termin_name)
+    save_screenshot(driver, bot_name)
     # notifier.send_to_telegram(termin_name + ' : '+message)
-    notifier.send_photo_to_telegram(message, photo_path=path + termin_name + '_' + driver.session_id + '.png')
+    notifier.send_photo_to_telegram(message, photo_path=path + bot_name + '_' + driver.session_id + '.png')
     sleep(wait)
+
 
 def get_page_source(driver):
     try:
@@ -108,15 +110,20 @@ def get_wait_time(driver):
     return time_to_wait_in_sec
 
 
-def save_screenshot(driver, termin_name):
+def save_screenshot(driver, bot_name):
     try:
-        element = WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, 10).until(
             lambda d: d.find_element(By.TAG_NAME, 'body').size['height'] > 0
         )
-        element.screenshot(path + termin_name + '_' + driver.session_id + '.png')
+
+        element = WebDriverWait(driver, 10).until(
+            lambda d: d.find_element(By.TAG_NAME, 'body')
+        )
+        element.screenshot(path + bot_name + '_' + driver.session_id + '.png')
     except Exception as ex:
         logging.warning(ex)
         pass
+
 
 def init_logger(default_name):
     name = get_bot_name(default_name)
@@ -153,12 +160,14 @@ def get_bot_name(default_name):
         return default_name + "|" + category
     return os.getenv('BOT_NAME') + category
 
+
 def get_next_date(days_to_add=1):
     current_date = datetime.now()
     # Add one day to the current date
     next_day = current_date + timedelta(days_to_add)
     # Format the date as desired (e.g., DD-MM-YYYY)
     return next_day.strftime('%d.%m.%Y')
+
 
 def handle_unexpected_alert(driver):
     try:
@@ -179,8 +188,9 @@ def handle_unexpected_alert(driver):
 
     except TimeoutException as e:
         pass
-        #logging.warning(f"Unexpected alert present: {e}")
-        #send_error_message(driver, get_bot_name('-'), str(e), 5)
+        # logging.warning(f"Unexpected alert present: {e}")
+        # send_error_message(driver, "LEA"+get_bot_name('-'), str(e), 5)
+
 
 if __name__ == "__main__":
     print(get_bot_name("D"))
