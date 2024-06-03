@@ -109,9 +109,14 @@ def get_wait_time(driver):
 
 
 def save_screenshot(driver, termin_name):
-    el = driver.find_element(By.TAG_NAME, 'body')
-    el.screenshot(path + termin_name + '_' + driver.session_id + '.png')
-
+    try:
+        element = WebDriverWait(driver, 10).until(
+            lambda d: d.find_element(By.TAG_NAME, 'body').size['height'] > 0
+        )
+        element.screenshot(path + termin_name + '_' + driver.session_id + '.png')
+    except Exception as ex:
+        logging.warning(ex)
+        pass
 
 def init_logger(default_name):
     name = get_bot_name(default_name)

@@ -38,7 +38,10 @@ class BerlinBot:
         # retry submit
         for i in range(1, 10):
             sleep(2)
-            if self.is_loader_not_visible() and is_page_contains_text(self.driver, "Verbleibende Zeit:"):
+            if (self.is_loader_not_visible()
+                    and not is_page_contains_text(self.driver, "Auswahl Termin")
+                    and is_page_contains_text(self.driver, "Verbleibende Zeit:")
+                    and is_page_contains_text(self.driver, "applicationForm:managedForm:proceed")):
                 self.submit_form("Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
 
             handle_unexpected_alert(self.driver)
