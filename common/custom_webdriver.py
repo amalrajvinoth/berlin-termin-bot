@@ -35,6 +35,7 @@ class WebDriver:
         if self._headless:
             options.add_argument('--headless')
         #options.add_argument("--start-maximized")
+        options.add_argument("--start-minimized")
         capabilities = DesiredCapabilities.CHROME.copy()
         capabilities['pageLoadStrategy'] = 'normal'
         capabilities['unexpectedAlertBehaviour'] = 'accept'
@@ -47,6 +48,7 @@ class WebDriver:
             "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                          'Chrome/83.0.4103.53 Safari/537.36'})
         self.__change_title__()
+        self._driver.minimize_window()
         return self._driver
 
     def __exit__(self, exc_type, exc_value, exc_tb):

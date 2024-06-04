@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 from common.common_util import send_success_message, find_by_xpath, count_by_xpath, sleep, select_dropdown, \
-    init_logger, is_page_contains_text, handle_unexpected_alert
+    init_logger, is_page_contains_text, handle_unexpected_alert, click_by_xpath, send_error_message
 from common.custom_webdriver import WebDriver
 
 page_url = "https://otv.verwalt-berlin.de/ams/TerminBuchen"
@@ -23,6 +23,7 @@ class BerlinBot:
         self._driver = WebDriver(bot_name).__enter__()
         self._bot_name = bot_name
         self.driver.get(page_url)
+        self.driver.minimize_window()
 
     def find_appointment(self):
         rounds = 0
@@ -38,18 +39,20 @@ class BerlinBot:
         self.enter_form()
 
         # retry submit
-        for i in range(1, 10):
+        while True:
             sleep(2)
             if self.is_success():
                 send_success_message(self.driver, bot_name, success_message)
-                break
+                return
             elif (self.is_loader_not_visible()
-                    and not is_page_contains_text(self.driver, "Auswahl Termin")
-                    and is_page_contains_text(self.driver, "Verbleibende Zeit:")
-                    and is_page_contains_text(self.driver, "applicationForm:managedForm:proceed")):
+                  and not is_page_contains_text(self.driver, "Auswahl Termin")
+                  and is_page_contains_text(self.driver, "Verbleibende Zeit:")
+                  and is_page_contains_text(self.driver, "applicationForm:managedForm:proceed")):
                 self.submit_form("Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
 
             handle_unexpected_alert(self.driver)
+
+            self.close_if_additional_dialog_window_found()
 
             if self.is_error_message("späteren Zeitpunkt"):
                 logging.warning("Got message - Try again later, retrying..")
@@ -63,10 +66,16 @@ class BerlinBot:
                 raise
             elif self.is_success():
                 send_success_message(self.driver, bot_name, success_message)
-                break
+                return
 
             if not is_page_contains_text(self.driver, "Verbleibende Zeit:"):
                 self.restart_if_required()
+
+            if (self.is_loader_not_visible()
+                    and (self.is_error_message("späteren Zeitpunkt") or self.is_error_message("keine Termine frei"))
+                    and is_page_contains_text(self.driver, "Verbleibende Zeit:")
+                    and is_page_contains_text(self.driver, "applicationForm:managedForm:proceed")):
+                self.submit_form("Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
 
     def is_loader_not_visible(self):
         try:
@@ -80,12 +89,14 @@ class BerlinBot:
 
     def enter_start_page(self):
         logging.info("Visit start page")
+        self.driver.get(page_url)
+        self.driver.minimize_window()
         while find_by_xpath(self.driver, "//*[contains(text(),'500 - Internal Server Error')]", 0):
             logging.error("Page error - 500 - Internal Server Error")
             sleep(1)
             self.driver.refresh()
-        self.click_by_xpath("Start page", By.XPATH,
-                            '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
+        click_by_xpath(self.driver, "Start page", By.XPATH,
+                       '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
 
     def enter_form(self):
         self.wait_for_main_form()
@@ -94,8 +105,8 @@ class BerlinBot:
         num_of_person = os.environ.get("LEA_NUMBER_OF_PERSON")
         family_living_in_berlin = os.environ.get("LEA_LIVING_IN_BERLIN")
         family_nationality = os.environ.get("LEA_NATIONALITY_OF_FAMILY_MEMBERS")
-        visa_category = os.environ.get("LEA_CATEGORY")
-        sub_category = os.environ.get("LEA_SUB_CATEGORY")
+        visa_category = os.environ.get("LEA_VISA_CATEGORY")
+        sub_category = os.environ.get("LEA_VISA_SUB_CATEGORY")
         visa_type = os.environ.get("LEA_VISA_TYPE")
 
         try:
@@ -113,17 +124,17 @@ class BerlinBot:
             self.restart_if_required()
 
             # extend residence permit
-            self.click_by_xpath("Selecting - visa category = " + visa_category, By.XPATH,
-                                '//*[contains(text(),"' + visa_category + '")]')
+            click_by_xpath(self.driver, "Selecting - Visa category = " + visa_category, By.XPATH,
+                           '//*[contains(text(),"' + visa_category + '")]')
 
             # family reasons
             if sub_category != "":
-                self.click_by_xpath("Selecting - visa sub-category = " + sub_category, By.XPATH,
-                                    '//*[contains(text(),"' + sub_category + '")]')
+                click_by_xpath(self.driver, "Selecting - Visa sub-category = " + sub_category, By.XPATH,
+                               '//*[contains(text(),"' + sub_category + '")]')
 
             # Residence permit for spouses, parents and children of foreign family members (§§ 29-34)
-            self.click_by_xpath("Selecting - visa type = " + visa_type, By.XPATH,
-                                '//*[contains(text(),"' + visa_type + '")]')
+            click_by_xpath(self.driver, "Selecting - Visa type = " + visa_type, By.XPATH,
+                           '//*[contains(text(),"' + visa_type + '")]')
 
             self.restart_if_required()
 
@@ -136,38 +147,24 @@ class BerlinBot:
         if self.is_success():
             send_success_message(self.driver, bot_name, success_message)
         else:
-            self.click_by_xpath(element_name, selector_type, selector)
+            click_by_xpath(self.driver, element_name, selector_type, selector)
 
     def wait_for_main_form(self):
         while not is_page_contains_text(self.driver, "Angaben zum Anliegen"):
-            if self.is_session_closed():
-                raise Exception("Session closed")
-            sleep(1)
-
-    def click_by_xpath(self, element_name, selector_type, selector):
-        for i in range(10):
-            try:
-                #logging.info(element_name)
-                element = WebDriverWait(self.driver, 60, 2).until(
-                    EC.presence_of_element_located((selector_type, selector))
-                )
-                element.click()
-                break
-            except Exception as ex:
-                logging.warning("%s, retry=%d, (%s)", str(ex), i, element_name)
-                if i == 9:
-                    raise
+            self.restart_if_session_closed()
+            sleep(3)
 
     def is_success(self):
         return (self.is_loader_not_visible()
                 and is_page_contains_text(self.driver, "Ausgewählte Dienstleistung:")
-                and is_page_contains_text(self.driver, "recaptcha"))
+                and is_page_contains_text(self.driver, "recaptcha")
+                and self.is_valid_appointment_time_found())
 
     def tick_off_agreement(self):
         logging.info("Ticking off agreement")
-        self.click_by_xpath("Select agreement", By.XPATH,
-                            '//*[@id="xi-div-1"]/div[4]/label[2]/p')
-        self.click_by_xpath("Submit button", By.ID, 'applicationForm:managedForm:proceed')
+        click_by_xpath(self.driver, "Select agreement", By.XPATH,
+                       '//*[@id="xi-div-1"]/div[4]/label[2]/p')
+        click_by_xpath(self.driver, "Submit button", By.ID, 'applicationForm:managedForm:proceed')
 
     def is_visa_extension_button_not_found(self):
         return self.visa_extension_button_count() == 0
@@ -187,11 +184,27 @@ class BerlinBot:
 
     def restart_if_session_closed(self):
         if self.is_session_closed():
-            logging.warning("Session closed message found, retrying..")
+            send_error_message(self.driver, bot_name, "session closed", 20)
             raise Exception("Session closed message found")
 
     def is_error_message(self, message, retry=1):
         return is_page_contains_text(self.driver, message)
+
+    def close_if_additional_dialog_window_found(self):
+        try:
+            # Wait for the form to be present
+            additional_dialog_found = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'additionalTimeDialog'))
+            )
+
+            if additional_dialog_found.is_displayed():
+                logging.warning("Got additional dialog: Session ended. Would you like to extend the session?, "
+                                "retrying..")
+                raise Exception("Got additional dialog: Session ended")
+
+        except Exception as ex:
+            logging.warning(ex)
+            raise
 
     @property
     def driver(self):
@@ -204,12 +217,28 @@ class BerlinBot:
         logging.exception("Close due to error= {0}".format(message))
         self.driver.quit()
 
+    def is_valid_appointment_time_found(self):
+        try:
+            # Wait for the dropdown options to be populated (other than the default option)
+            WebDriverWait(self.driver, 10).until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, '#xi-sel-3_1')) > 1
+            )
+
+            select_element = WebDriverWait(self.driver, 10).until(
+                lambda d: d.find_elements(By.CSS_SELECTOR, '#xi-sel-3_1')
+            )
+            time_value = select_element.get_attribute('value')
+            logging.info("FOUND time : %s", time_value)
+            return time_value != ""
+        except Exception as ex:
+            logging.warning(ex)
+
 
 if __name__ == "__main__":
     while True:
         berlin_bot = BerlinBot()
         try:
-            #sys.tracebacklimit = 0
+            # sys.tracebacklimit = 0
             load_dotenv()
             init_logger('LEA')
             berlin_bot.find_appointment()

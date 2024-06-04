@@ -75,6 +75,7 @@ def select_dropdown(driver: webdriver.WebDriver, selector_type, selector, value)
 
 def send_success_message(driver, bot_name, message, wait=300):
     logging.info("!!!SUCCESS - do not close the window!!!!")
+    driver.maximize_window()
     save_screenshot(driver, bot_name)
     # notifier.send_to_telegram(termin_name + ' : '+message)
     notifier.send_photo_to_telegram(message, photo_path=path + bot_name + '_' + driver.session_id + '.png')
@@ -85,9 +86,9 @@ def send_success_message(driver, bot_name, message, wait=300):
 
 def send_error_message(driver, bot_name, message, wait=300):
     logging.error("!!!ERROR - = %s !!!!", message)
-    save_screenshot(driver, bot_name)
+    #save_screenshot(driver, bot_name)
     # notifier.send_to_telegram(termin_name + ' : '+message)
-    notifier.send_photo_to_telegram(message, photo_path=path + bot_name + '_' + driver.session_id + '.png')
+    #notifier.send_photo_to_telegram(message, photo_path=path + bot_name + '_' + driver.session_id + '.png')
     sleep(wait)
 
 
@@ -101,13 +102,6 @@ def get_page_source(driver):
             logging.error("failed and alert_text is %s!", alert_text)
             driver.switch_to().alert().accept()
             return driver.page_source
-
-
-def get_wait_time(driver):
-    time_to_wait = driver.find_element(By.XPATH, "//*[@id='calculatedSecs']").text
-    # logging.info("time_to_wait = %s", time_to_wait)
-    time_to_wait_in_sec = int(time_to_wait.split(':')[1])
-    return time_to_wait_in_sec
 
 
 def save_screenshot(driver, bot_name):
@@ -154,11 +148,16 @@ def init_logger(default_name):
 
 def get_bot_name(default_name):
     pattern = re.compile(r'\(.+\)')
-    visa_sub_category = os.environ.get("LEA_FAMILY_REASON")
-    category = pattern.findall(visa_sub_category)[0]
-    if not os.getenv('BOT_NAME'):
-        return default_name + "|" + category
-    return os.getenv('BOT_NAME') + category
+    visa_sub_category = os.environ.get("LEA_VISA_TYPE")
+    if len(visa_sub_category) > 0:
+        category = pattern.findall(visa_sub_category)[0]
+        if not os.getenv('BOT_NAME'):
+            return default_name + "|" + category
+        return os.getenv('BOT_NAME') + category
+    words = visa_sub_category.split()
+    if not words:
+        return None  # Handle empty sentence
+    return words[-1]
 
 
 def get_next_date(days_to_add=1):
