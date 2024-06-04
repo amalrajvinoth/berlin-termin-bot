@@ -194,17 +194,15 @@ class BerlinBot:
         try:
             # Wait for the form to be present
             additional_dialog_found = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, 'additionalTimeDialog'))
+                EC.visibility_of_element_located((By.ID, 'additionalTimeDialog'))
             )
 
-            if additional_dialog_found.is_displayed():
+            if additional_dialog_found.is_enabled():
                 logging.warning("Got additional dialog: Session ended. Would you like to extend the session?, "
                                 "retrying..")
                 raise Exception("Got additional dialog: Session ended")
-
         except Exception as ex:
-            logging.warning(ex)
-            raise
+            pass
 
     @property
     def driver(self):
