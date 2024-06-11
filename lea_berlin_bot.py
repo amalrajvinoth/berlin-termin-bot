@@ -1,6 +1,6 @@
 import logging
 import os
-import sys
+import traceback
 
 from dotenv import load_dotenv
 from selenium.common.exceptions import TimeoutException
@@ -9,7 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 from common.common_util import send_success_message, find_by_xpath, count_by_xpath, sleep, select_dropdown, \
-    init_logger, is_page_contains_text, handle_unexpected_alert, click_by_xpath, send_error_message
+    init_logger, is_page_contains_text, handle_unexpected_alert, click_by_xpath, send_error_message, get_wait_time
 from common.custom_webdriver import WebDriver
 
 page_url = "https://otv.verwalt-berlin.de/ams/TerminBuchen"
@@ -24,6 +24,7 @@ class BerlinBot:
         self._bot_name = bot_name
         self.driver.get(page_url)
         self.driver.minimize_window()
+        self.timeout_count = 0
 
     def find_appointment(self):
         rounds = 0
@@ -84,6 +85,11 @@ class BerlinBot:
                 EC.invisibility_of_element_located((By.CLASS_NAME, "loading"))
             )
             return True
+        except TimeoutException:
+            if self.timeout_count > 5:
+                raise Exception("Restart due to more timeouts")
+            self.timeout_count = self.timeout_count + 1
+            return False
         except Exception:
             return False
 
@@ -147,6 +153,7 @@ class BerlinBot:
         if self.is_success():
             send_success_message(self.driver, bot_name, success_message)
         else:
+            self.print_time_left()
             click_by_xpath(self.driver, element_name, selector_type, selector)
 
     def wait_for_main_form(self):
@@ -201,18 +208,23 @@ class BerlinBot:
                 logging.warning("Got additional dialog: Session ended. Would you like to extend the session?, "
                                 "retrying..")
                 raise Exception("Got additional dialog: Session ended")
-        except Exception as ex:
+        except TimeoutException:
             pass
+        except Exception:
+            raise
 
     @property
     def driver(self):
         return self._driver
 
     def is_session_closed(self):
-        return is_page_contains_text(self.driver, "Sitzungsende")
+        return (is_page_contains_text(self.driver, "Sitzungsende")
+                or is_page_contains_text(self.driver, "Fehler ist aufgetreten. Bitte versuchen Sie es zu einem "
+                                                      "späteren Zeitpunkt nochmal."))
 
     def close(self, message):
         logging.exception("Close due to error= {0}".format(message))
+        print(traceback.format_exc())
         self.driver.quit()
 
     def is_valid_appointment_time_found(self):
@@ -228,8 +240,12 @@ class BerlinBot:
             time_value = select_element.get_attribute('value')
             logging.info("FOUND time : %s", time_value)
             return time_value != ""
-        except Exception as ex:
-            logging.warning(ex)
+        except Exception:
+            print(traceback.format_exc())
+
+    def print_time_left(self):
+        time_to_wait_in_sec = get_wait_time(self._driver, By.XPATH, "//*[@id='progressBar']")
+        logging.info("Session time left: %d sec", time_to_wait_in_sec)
 
 
 if __name__ == "__main__":

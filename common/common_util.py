@@ -78,7 +78,8 @@ def send_success_message(driver, bot_name, message, wait=300):
     driver.maximize_window()
     save_screenshot(driver, bot_name)
     # notifier.send_to_telegram(termin_name + ' : '+message)
-    notifier.send_photo_to_telegram(message, photo_path=path + bot_name + '_' + driver.session_id + '.png')
+    for _ in range(3):
+        notifier.send_photo_to_telegram(message, photo_path=path + bot_name + '_' + driver.session_id + '.png')
     while True:
         sound.play_sound_osx(_sound_file)
         sleep(wait)
@@ -86,9 +87,9 @@ def send_success_message(driver, bot_name, message, wait=300):
 
 def send_error_message(driver, bot_name, message, wait=300):
     logging.error("!!!ERROR - = %s !!!!", message)
-    #save_screenshot(driver, bot_name)
+    # save_screenshot(driver, bot_name)
     # notifier.send_to_telegram(termin_name + ' : '+message)
-    #notifier.send_photo_to_telegram(message, photo_path=path + bot_name + '_' + driver.session_id + '.png')
+    # notifier.send_photo_to_telegram(message, photo_path=path + bot_name + '_' + driver.session_id + '.png')
     sleep(wait)
 
 
@@ -189,6 +190,23 @@ def handle_unexpected_alert(driver):
         pass
         # logging.warning(f"Unexpected alert present: {e}")
         # send_error_message(driver, "LEA"+get_bot_name('-'), str(e), 5)
+
+
+def get_wait_time(driver, selector_type, selector):
+    try:
+        time_left = WebDriverWait(driver, 10).until(
+            lambda d: d.find_element(selector_type, selector)
+        )
+        if time_left.is_displayed():
+            time_to_wait = time_left.text
+            logging.info("time_to_wait = %s", time_to_wait)
+            time_to_wait_in_sec = int(time_to_wait.split(':')[0]) * 60 + int(time_to_wait.split(':')[1])
+            return time_to_wait_in_sec
+        else:
+            return -1
+    except Exception as ex:
+        logging.warning(ex)
+        return -1
 
 
 if __name__ == "__main__":

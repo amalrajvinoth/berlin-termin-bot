@@ -1,16 +1,14 @@
 import logging
 import os
 import re
-import sys
 from datetime import datetime
 
 from dotenv import load_dotenv
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
 
-from common.common_util import sleep, send_success_message, get_page_source, \
-    init_logger, is_page_contains_text, click_by_xpath
+from common.common_util import sleep, send_success_message, init_logger, is_page_contains_text, click_by_xpath, \
+    get_wait_time
 from common.custom_webdriver import WebDriver
 
 page_url = "https://service.berlin.de/dienstleistung/120686"
@@ -58,18 +56,17 @@ class BerlinBot:
                 if self.is_success():
                     send_success_message(self._driver, bot_name, success_message)
                     break
-                sleep(2)
 
                 if self.is_error_message("Zu viele Zugriffe"):
                     logging.warning("Too many hits, restarting..")
                     raise
                 elif is_page_contains_text(self._driver, "keine Termine"):
-                    self.wait_and_click_next()
                     logging.warning("Got message - No appointment found, retrying..")
+                    self.wait_and_click_next()
                 elif is_page_contains_text(self._driver, "Bitte entschuldigen Sie den Fehler"):
-                    logging.warning("Server error, retrying..")
-                    raise
-        except Exception:
+                    raise Exception("Server error, retrying..")
+        except Exception as ex:
+            logging.warning(ex)
             raise
 
     def is_success(self):
@@ -77,13 +74,18 @@ class BerlinBot:
                 and is_page_contains_text(self._driver, "Bitte wählen Sie ein Datum:")):
             if not self.expected_date_range_found():
                 sleep(10)
-                self.enter_start_page()
+                self.restart()
                 logging.warning("No expected dates found in date range, restarting")
+                return False
             else:
                 return True
         else:
             return (is_page_contains_text(self._driver, "Terminvereinbarung")
                     and is_page_contains_text(self._driver, "Bitte wählen Sie ein Datum:"))
+
+    def restart(self):
+        self._driver.refresh()
+        self.enter_start_page()
 
     def enter_start_page(self):
         click_by_xpath(self._driver, "Berlinweite Terminbuchung",
@@ -93,36 +95,19 @@ class BerlinBot:
     def wait_and_click_next(self):
         if is_page_contains_text(self._driver, time_message):
             self._driver.back()
-            sleep(2)
 
         try:
-            time_to_wait_in_sec = self.get_wait_time()
-            while time_to_wait_in_sec > 0:
-                if time_to_wait_in_sec > 20:
-                    raise RuntimeWarning("wait is longer than 20 sec")
-                if time_message in get_page_source(self._driver):
-                    self._driver.back()
-                    sleep(2)
-                time_to_wait_in_sec = self.get_wait_time()
-                logging.info("Wait for %d sec", time_to_wait_in_sec)
+            time_to_wait_in_sec = get_wait_time(self._driver, By.XPATH, "//*[@id='calculatedSecs']")
+            if time_to_wait_in_sec == 0:
+                click_by_xpath(self._driver, "Terminsuche wiederholen button",
+                               By.XPATH, "//button[text()='Terminsuche wiederholen']")
+            elif time_to_wait_in_sec == -1:
+                self.restart()
+            else:
+                logging.info("Wait for %s sec", time_to_wait_in_sec)
                 sleep(time_to_wait_in_sec)
-                if time_to_wait_in_sec == 0:
-                    click_by_xpath(self._driver, "Terminsuche wiederholen button",
-                                   By.XPATH, "//button[text()='Terminsuche wiederholen']")
-        except RuntimeWarning as ex:
-            raise
         except Exception as ex:
             logging.warning(ex)
-
-    def get_wait_time(self):
-        time_left = WebDriverWait(self._driver, 10).until(
-            lambda d: d.find_element(By.XPATH, "//*[@id='calculatedSecs']")
-        )
-        if time_left.is_displayed():
-            time_to_wait = time_left.text
-            # logging.info("time_to_wait = %s", time_to_wait)
-            time_to_wait_in_sec = int(time_to_wait.split(':')[1])
-            return time_to_wait_in_sec
 
     def close(self, message):
         logging.exception("Close due to error= {0}".format(message))
@@ -133,7 +118,6 @@ class BerlinBot:
             return self._driver.find_element(By.XPATH,
                                              '//*[@id="messagesBox"]/ul/li[contains(text(), "' + message + '")]')
         except NoSuchElementException as exception:
-            logging.warning("%s", str(exception.msg))
             return False
 
     def expected_date_range_found(self):
@@ -167,7 +151,7 @@ if __name__ == "__main__":
     while True:
         berlin_bot = BerlinBot(page_url)
         try:
-            sys.tracebacklimit = 0
+            #sys.tracebacklimit = 0
             load_dotenv()
             init_logger('APT')
             berlin_bot.find_appointment_indefinitely()
