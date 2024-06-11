@@ -199,7 +199,7 @@ def get_wait_time(driver, selector_type, selector):
         )
         if time_left.is_displayed():
             time_to_wait = time_left.text
-            logging.info("time_to_wait = %s", time_to_wait)
+            logging.info("Wait time displayed = %s", time_to_wait)
             time_to_wait_in_sec = int(time_to_wait.split(':')[0]) * 60 + int(time_to_wait.split(':')[1])
             return time_to_wait_in_sec
         else:
