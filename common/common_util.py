@@ -122,7 +122,7 @@ def save_screenshot(driver, bot_name):
 
 def init_logger(default_name):
     name = get_bot_name(default_name)
-
+    logging.addLevelName(35, "SUCCESS")
     if not os.getenv('COLOREDLOGS_LOG_FORMAT'):
         styles = dict(
             spam=dict(color='green', faint=True),
@@ -131,7 +131,7 @@ def init_logger(default_name):
             info=dict(),
             notice=dict(color='magenta'),
             warning=dict(color='yellow'),
-            success=dict(color='green', bold=True),
+            success=dict(background='green', color='white', bold=True),
             error=dict(background='red'),
             critical=dict(color='red', bold=True),
         )
@@ -199,7 +199,9 @@ def get_wait_time(driver, selector_type, selector):
         )
         if time_left.is_displayed():
             time_to_wait = time_left.text
-            logging.info("Wait time displayed = %s", time_to_wait)
+            if time_to_wait.strip() == "":
+                return 0
+            logging.info("Wait time displayed = %s Minutes", time_to_wait)
             time_to_wait_in_sec = int(time_to_wait.split(':')[0]) * 60 + int(time_to_wait.split(':')[1])
             return time_to_wait_in_sec
         else:

@@ -26,8 +26,7 @@ def print_available_dates(links):
         if date_match:
             date_str = date_match.group()
             result_string += date_str + ", "
-
-    logging.warning("Available dates found: %s", result_string)
+    logging.log(35, "Available dates found: %s", result_string)
 
 
 class BerlinBot:
@@ -141,7 +140,7 @@ class BerlinBot:
                     date_str = date_match.group()
                     date_obj = datetime.strptime(date_str, "%d.%m.%Y")
                     if start_date <= date_obj <= end_date:
-                        logging.info("FOUND : "+aria_label)
+                        logging.log(35, "FOUND : %s", aria_label)
                         matching_links.append(aria_label)
 
         return len(matching_links) > 0

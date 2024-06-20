@@ -52,7 +52,7 @@ class BerlinBot:
                 self.submit_form("Form Submit.", By.ID, 'applicationForm:managedForm:proceed')
 
             handle_unexpected_alert(self.driver)
-
+            self.restart_if_rejected()
             self.close_if_additional_dialog_window_found()
 
             if self.is_error_message("späteren Zeitpunkt"):
@@ -97,6 +97,8 @@ class BerlinBot:
         logging.info("Visit start page")
         self.driver.get(page_url)
         self.driver.minimize_window()
+        self.restart_if_under_maintenance()
+        self.restart_if_rejected()
         while find_by_xpath(self.driver, "//*[contains(text(),'500 - Internal Server Error')]", 0):
             logging.error("Page error - 500 - Internal Server Error")
             sleep(1)
@@ -160,6 +162,11 @@ class BerlinBot:
         while not is_page_contains_text(self.driver, "Angaben zum Anliegen"):
             self.restart_if_session_closed()
             sleep(3)
+
+    def restart_if_under_maintenance(self):
+        while is_page_contains_text(self.driver, "Wartungsarbeiten"):
+            sleep(60)
+            raise Exception("Site under maintenance")
 
     def is_success(self):
         return (self.is_loader_not_visible()
@@ -246,6 +253,12 @@ class BerlinBot:
     def print_time_left(self):
         time_to_wait_in_sec = get_wait_time(self._driver, By.XPATH, "//*[@id='progressBar']")
         logging.info("Session time left: %d sec", time_to_wait_in_sec)
+
+    def restart_if_rejected(self):
+        while is_page_contains_text(self.driver, "The requested URL was rejected. Please consult with your "
+                                                 "administrator"):
+            sleep(5)
+            raise Exception("requested URL was rejected")
 
 
 if __name__ == "__main__":
