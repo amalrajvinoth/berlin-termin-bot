@@ -31,7 +31,7 @@ class BerlinBot:
         while True:
             rounds = rounds + 1
             self.fill_search_form(rounds)
-            sleep(2)
+            sleep(2, 'find_appointment')
 
     def fill_search_form(self, rounds=0):
         logging.info("Round - # %d, SessionId=%s", rounds, self.driver.session_id)
@@ -41,7 +41,7 @@ class BerlinBot:
 
         # retry submit
         while True:
-            sleep(2)
+            sleep(2, 'fill_search_form_start')
             if self.is_success():
                 send_success_message(self.driver, bot_name, success_message)
                 return
@@ -95,13 +95,14 @@ class BerlinBot:
 
     def enter_start_page(self):
         logging.info("Visit start page")
+        self.restart_if_rejected()
         self.driver.get(page_url)
         self.driver.minimize_window()
         self.restart_if_under_maintenance()
         self.restart_if_rejected()
         while find_by_xpath(self.driver, "//*[contains(text(),'500 - Internal Server Error')]", 0):
             logging.error("Page error - 500 - Internal Server Error")
-            sleep(1)
+            sleep(1, 'enter_start_page')
             self.driver.refresh()
         click_by_xpath(self.driver, "Start page", By.XPATH,
                        '//*[@id="mainForm"]/div/div/div/div/div/div/div/div/div/div[1]/div[1]/div[2]/a')
@@ -124,10 +125,10 @@ class BerlinBot:
             select_dropdown(self.driver, By.ID, 'xi-sel-422', num_of_person)
             # Living with family member?
             select_dropdown(self.driver, By.ID, 'xi-sel-427', family_living_in_berlin)
-            sleep(1)
+            sleep(1, 'enter_form|family_living_in_berlin|after')
             # Family member Citizenship = Indien
             select_dropdown(self.driver, By.ID, 'xi-sel-428', family_nationality)
-            sleep(1)
+            sleep(1, 'enter_form|family_nationality|after')
 
             self.restart_if_required()
 
@@ -161,11 +162,12 @@ class BerlinBot:
     def wait_for_main_form(self):
         while not is_page_contains_text(self.driver, "Angaben zum Anliegen"):
             self.restart_if_session_closed()
-            sleep(3)
+            self.restart_if_rejected()
+            sleep(3, 'wait_for_main_form')
 
     def restart_if_under_maintenance(self):
         while is_page_contains_text(self.driver, "Wartungsarbeiten"):
-            sleep(60)
+            sleep(60, 'restart_if_under_maintenance')
             raise Exception("Site under maintenance")
 
     def is_success(self):
@@ -176,6 +178,7 @@ class BerlinBot:
 
     def tick_off_agreement(self):
         logging.info("Ticking off agreement")
+        self.restart_if_rejected()
         click_by_xpath(self.driver, "Select agreement", By.XPATH,
                        '//*[@id="xi-div-1"]/div[4]/label[2]/p')
         click_by_xpath(self.driver, "Submit button", By.ID, 'applicationForm:managedForm:proceed')
@@ -257,7 +260,7 @@ class BerlinBot:
     def restart_if_rejected(self):
         while is_page_contains_text(self.driver, "The requested URL was rejected. Please consult with your "
                                                  "administrator"):
-            sleep(5)
+            sleep(5, 'restart_if_rejected')
             raise Exception("requested URL was rejected")
 
 

@@ -1,3 +1,4 @@
+import collections
 import logging
 import os
 import re
@@ -42,7 +43,7 @@ class BerlinBot:
         while True:
             rounds = rounds + 1
             self.find_appointment(rounds)
-            sleep(2)
+            sleep(2, 'find_appointment_indefinitely')
 
     def find_appointment(self, rounds=0):
         self._driver.minimize_window()
@@ -72,7 +73,7 @@ class BerlinBot:
         if (bool(os.environ.get("APT_DATE_RANGE_ENABLED"))
                 and is_page_contains_text(self._driver, "Bitte wählen Sie ein Datum:")):
             if not self.expected_date_range_found():
-                sleep(10)
+                sleep(10, 'is_success')
                 self.restart()
                 logging.warning("No expected dates found in date range, restarting")
                 return False
@@ -89,7 +90,7 @@ class BerlinBot:
     def enter_start_page(self):
         click_by_xpath(self._driver, "Berlinweite Terminbuchung",
                        By.XPATH, "//*[contains(text(), 'Berlinweite Terminbuchung')]")
-        sleep(2)
+        sleep(2, 'enter_start_page')
 
     def wait_and_click_next(self):
         if is_page_contains_text(self._driver, time_message):
@@ -104,7 +105,7 @@ class BerlinBot:
                 self.restart()
             else:
                 logging.info("Wait for %s sec", time_to_wait_in_sec)
-                sleep(time_to_wait_in_sec)
+                sleep(time_to_wait_in_sec, 'wait_and_click_next')
         except Exception as ex:
             logging.warning(ex)
 
@@ -121,7 +122,7 @@ class BerlinBot:
 
     def expected_date_range_found(self):
         # Define the date range
-        start = "16.06.2024"
+        start = "21.06.2024"
         #start = get_next_date()
         end = os.environ.get("APT_DATE_RANGE_END")
         start_date = datetime.strptime(start, "%d.%m.%Y")
@@ -130,7 +131,7 @@ class BerlinBot:
         # Find all available dates
         links = self._driver.find_elements(By.CSS_SELECTOR, 'td.buchbar > a')
         print_available_dates(links)
-        matching_links = []
+        found_list = {}
 
         for link in links:
             aria_label = link.get_attribute('aria-label')
@@ -140,10 +141,19 @@ class BerlinBot:
                     date_str = date_match.group()
                     date_obj = datetime.strptime(date_str, "%d.%m.%Y")
                     if start_date <= date_obj <= end_date:
-                        logging.log(35, "FOUND : %s", aria_label)
-                        matching_links.append(aria_label)
+                        found_list[aria_label] = link
 
-        return len(matching_links) > 0
+        if len(found_list) > 0:
+            logging.log(35, "FOUND : %s", found_list.keys())
+            sorted_dates = collections.OrderedDict(sorted(found_list.items()))
+            next(iter(sorted_dates.values())).click()
+            actual_dates_found = self._driver.find_elements(By.CSS_SELECTOR, 'th.buchbar')
+            logging.log(35, "actual_dates_found : %s", actual_dates_found)
+            if len(actual_dates_found) == 0:
+                return Exception("Empty appointments")
+            return True
+
+        return False
 
 
 if __name__ == "__main__":

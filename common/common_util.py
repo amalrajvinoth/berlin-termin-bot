@@ -18,8 +18,8 @@ _sound_file = os.path.join(os.getcwd(), "alarm.wav")
 path = os.path.expanduser('~') + '/Downloads/'
 
 
-def sleep(seconds=2):
-    logging.info("Sleeping for %d seconds", seconds)
+def sleep(seconds=2, context=''):
+    logging.info("%s : Sleep %d seconds", context, seconds)
     time.sleep(seconds)
 
 
